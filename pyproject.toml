@@ -1,0 +1,70 @@
+[project]
+name = "grimoire"
+version = "0.1.0"
+description = "Grimoire — AI Codebase Intelligence System. Analyse n'importe quel repo et génère documentation, diagrammes d'architecture, rapport de dette technique, et Q&A en langage naturel."
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "Emmanuel Zerbib"}]
+
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+    "langchain-anthropic>=0.3.0",
+    "chromadb>=0.6.0",
+    "gitpython>=3.1.0",
+    "tree-sitter>=0.24.0",
+    "tree-sitter-languages>=1.10.0",
+    "networkx>=3.4.0",
+    "anthropic>=0.43.0",
+    "httpx>=0.28.0",
+    "sse-starlette>=2.2.0",
+    "python-multipart>=0.0.18",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.buildmeta"
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow tests requiring external resources",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["backend"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["agents", "graph", "core", "api"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

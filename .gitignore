@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+.venv/
+venv/
+env/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Grimoire data
+data/chroma/
+data/repos/
+
+# Node (frontend)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Docker
+docker-compose.override.yml
+
+# Test
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Claude
+.claude/
