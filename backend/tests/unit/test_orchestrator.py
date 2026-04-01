@@ -13,10 +13,17 @@ from graph.orchestrator import (
 )
 from graph.state import (
     AgentName,
+    ArchitectureReport,
     GrimoireState,
     PipelineStatus,
     RepoManifest,
+    TechDebtReport,
 )
+
+from agents.code_chunker import should_continue_after_chunking
+from agents.architecture_mapper import should_continue_after_mapping
+from agents.tech_debt_analyzer import should_continue_after_debt_analysis
+from agents.qa_interface import should_continue_after_qa
 
 
 # --- create_initial_state tests ---
@@ -83,8 +90,7 @@ class TestConditionalEdges:
         }
         assert _should_continue_after_ingestion(state) == "end"
 
-    def test_successful_ingestion_routes_to_end_phase1(self):
-        """Phase 1: all routes go to END since only ingestion is implemented."""
+    def test_successful_ingestion_routes_to_chunker(self):
         manifest = RepoManifest(
             repo_name="test", repo_url="https://test.com", clone_path="/tmp/t",
             total_files=10, total_lines=500, languages=(), contributors=(),
@@ -94,8 +100,7 @@ class TestConditionalEdges:
             "status": PipelineStatus.INGESTING,
             "repo_manifest": manifest,
         }
-        # Phase 1: all paths route to end
-        assert _should_continue_after_ingestion(state) == "end"
+        assert _should_continue_after_ingestion(state) == "chunker"
 
 
 # --- Graph structure tests ---
@@ -106,11 +111,11 @@ class TestGraphStructure:
         graph = build_pipeline()
         assert graph is not None
 
-    def test_graph_has_ingestor_node(self):
+    def test_graph_has_all_nodes(self):
         graph = build_pipeline()
         node_names = list(graph.get_graph().nodes.keys())
-        # LangGraph stores nodes — "repo_ingestor" should be present
-        assert any("repo_ingestor" in str(n) for n in node_names)
+        for expected in ("repo_ingestor", "chunker", "architecture_mapper", "tech_debt_analyzer", "qa_ready"):
+            assert any(expected in str(n) for n in node_names), f"Missing node: {expected}"
 
     def test_graph_has_start_and_end(self):
         graph = build_pipeline()
@@ -121,7 +126,109 @@ class TestGraphStructure:
     def test_graph_edges_include_start_to_ingestor(self):
         graph = build_pipeline()
         edges = list(graph.get_graph().edges)
-        # Should have an edge from __start__ to repo_ingestor
         edge_sources = [e.source for e in edges]
-        edge_targets = [e.target for e in edges]
         assert "__start__" in edge_sources
+
+
+# --- Chunker conditional edge tests ---
+
+
+class TestChunkerConditionalEdges:
+    def test_failed_routes_to_end(self):
+        state: GrimoireState = {
+            "status": PipelineStatus.FAILED,
+            "chunks": [],
+        }  # type: ignore[typeddict-item]
+        assert should_continue_after_chunking(state) == "end"
+
+    def test_no_chunks_routes_to_end(self):
+        state: GrimoireState = {
+            "status": PipelineStatus.CHUNKING,
+            "chunks": [],
+        }  # type: ignore[typeddict-item]
+        assert should_continue_after_chunking(state) == "end"
+
+    def test_success_routes_to_architecture_mapper(self):
+        state: GrimoireState = {
+            "status": PipelineStatus.CHUNKING,
+            "chunks": [MagicMock()],
+        }  # type: ignore[typeddict-item]
+        assert should_continue_after_chunking(state) == "architecture_mapper"
+
+
+# --- Architecture mapper conditional edge tests ---
+
+
+class TestArchitectureMapperConditionalEdges:
+    def test_failed_routes_to_end(self):
+        state: GrimoireState = {
+            "status": PipelineStatus.FAILED,
+            "architecture_report": None,
+        }
+        assert should_continue_after_mapping(state) == "end"
+
+    def test_no_report_routes_to_end(self):
+        state: GrimoireState = {
+            "status": PipelineStatus.MAPPING,
+            "architecture_report": None,
+        }
+        assert should_continue_after_mapping(state) == "end"
+
+    def test_success_routes_to_tech_debt_analyzer(self):
+        report = ArchitectureReport(
+            dependency_graph={},
+            entry_points=(),
+            core_modules=(),
+            orphan_modules=(),
+            dependency_cycles=(),
+            detected_pattern="monolith",
+            mermaid_diagram="graph TD",
+            module_descriptions={},
+        )
+        state: GrimoireState = {
+            "status": PipelineStatus.MAPPING,
+            "architecture_report": report,
+        }
+        assert should_continue_after_mapping(state) == "tech_debt_analyzer"
+
+
+# --- Tech debt analyzer conditional edge tests ---
+
+
+class TestTechDebtAnalyzerConditionalEdges:
+    def test_failed_routes_to_end(self):
+        state: GrimoireState = {
+            "status": PipelineStatus.FAILED,
+            "tech_debt_report": None,
+        }
+        assert should_continue_after_debt_analysis(state) == "end"
+
+    def test_no_report_routes_to_end(self):
+        state: GrimoireState = {
+            "status": PipelineStatus.ANALYZING_DEBT,
+            "tech_debt_report": None,
+        }
+        assert should_continue_after_debt_analysis(state) == "end"
+
+    def test_success_routes_to_qa_ready(self):
+        report = TechDebtReport(
+            overall_score=10.0,
+            categories=(),
+            outdated_dependencies=(),
+            todos_fixmes=(),
+            summary_markdown="",
+        )
+        state: GrimoireState = {
+            "status": PipelineStatus.ANALYZING_DEBT,
+            "tech_debt_report": report,
+        }
+        assert should_continue_after_debt_analysis(state) == "qa_ready"
+
+
+# --- QA conditional edge tests ---
+
+
+class TestQAConditionalEdges:
+    def test_always_routes_to_end(self):
+        state: GrimoireState = {"status": PipelineStatus.QA_READY}
+        assert should_continue_after_qa(state) == "end"

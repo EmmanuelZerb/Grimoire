@@ -29,6 +29,8 @@ Thumbs.db
 # Grimoire data
 data/chroma/
 data/repos/
+backend/data/chroma/
+backend/data/repos/
 
 # Node (frontend)
 frontend/node_modules/

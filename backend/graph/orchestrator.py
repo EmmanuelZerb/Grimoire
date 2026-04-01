@@ -1,7 +1,6 @@
 """Grimoire — LangGraph StateGraph orchestrator.
 
 Wires all 5 agents into a single pipeline with conditional edges.
-Phase 1: Only RepoIngestorAgent is active.
 """
 
 from __future__ import annotations
@@ -11,7 +10,11 @@ from datetime import datetime, timezone
 
 from langgraph.graph import END, START, StateGraph
 
+from agents.architecture_mapper import architecture_mapper, should_continue_after_mapping
+from agents.code_chunker import code_chunker, should_continue_after_chunking
+from agents.qa_interface import qa_interface, should_continue_after_qa
 from agents.repo_ingestor import repo_ingestor
+from agents.tech_debt_analyzer import tech_debt_analyzer, should_continue_after_debt_analysis
 from graph.state import AgentName, GrimoireState, PipelineStatus
 
 
@@ -33,36 +36,62 @@ def _should_continue_after_ingestion(state: GrimoireState) -> str:
     if manifest.total_files == 0:
         return "end"
 
-    # Phase 1: only ingestion is implemented
-    # Future phases will route to "chunker"
-    return "end"
+    return "chunker"
 
 
 def build_pipeline() -> StateGraph:
     """Build the complete LangGraph pipeline.
 
-    Phase 1 graph:
-        START → repo_ingestor → (conditional) → END
-
-    Future phases will add:
-        chunker → architecture_mapper → tech_debt_analyzer → qa_ready → END
+    Full pipeline:
+        START → repo_ingestor → chunker → architecture_mapper
+              → tech_debt_analyzer → qa_ready → END
     """
     graph = StateGraph(GrimoireState)
 
     # Add nodes (one per agent)
     graph.add_node("repo_ingestor", repo_ingestor)
-
-    # Future phases:
-    # graph.add_node("chunker", code_chunker)
-    # graph.add_node("architecture_mapper", architecture_mapper)
-    # graph.add_node("tech_debt_analyzer", tech_debt_analyzer)
-    # graph.add_node("qa_ready", qa_interface)
+    graph.add_node("chunker", code_chunker)
+    graph.add_node("architecture_mapper", architecture_mapper)
+    graph.add_node("tech_debt_analyzer", tech_debt_analyzer)
+    graph.add_node("qa_ready", qa_interface)
 
     # Add edges
     graph.add_edge(START, "repo_ingestor")
     graph.add_conditional_edges(
         "repo_ingestor",
         _should_continue_after_ingestion,
+        {
+            "end": END,
+            "chunker": "chunker",
+        },
+    )
+    graph.add_conditional_edges(
+        "chunker",
+        should_continue_after_chunking,
+        {
+            "end": END,
+            "architecture_mapper": "architecture_mapper",
+        },
+    )
+    graph.add_conditional_edges(
+        "architecture_mapper",
+        should_continue_after_mapping,
+        {
+            "end": END,
+            "tech_debt_analyzer": "tech_debt_analyzer",
+        },
+    )
+    graph.add_conditional_edges(
+        "tech_debt_analyzer",
+        should_continue_after_debt_analysis,
+        {
+            "end": END,
+            "qa_ready": "qa_ready",
+        },
+    )
+    graph.add_conditional_edges(
+        "qa_ready",
+        should_continue_after_qa,
         {
             "end": END,
         },

@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #FAFAF9;
+  --border: #E7E5E4;
+  --text: #1C1917;
+  --text-2: #57534E;
+  --text-3: #A8A29E;
+  --accent: #0D9488;
+  --accent-hover: #0F766E;
+  --accent-bg: #F0FDFA;
+  --success: #16A34A;
+  --success-bg: #F0FDF4;
+  --error: #DC2626;
+  --error-bg: #FEF2F2;
+  --warning: #D97706;
+  --warning-bg: #FFFBEB;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar ────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+*::-webkit-scrollbar { width: 4px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ── Animation ────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.5s ease both; }
+
+/* ── Mermaid ──────────────────────────────────── */
+.mermaid-wrap svg { max-width: 100%; height: auto; }
+
+/* ── Severity badges ──────────────────────────── */
+.sev-low      { background: var(--success-bg); color: var(--success); }
+.sev-medium   { background: var(--warning-bg); color: var(--warning); }
+.sev-high     { background: var(--error-bg); color: var(--error); }
+.sev-critical { background: #FDF2F8; color: #DB2777; }
