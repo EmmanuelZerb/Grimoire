@@ -564,9 +564,14 @@ def _chunk_file(
     ts_lang = _get_tree_sitter_lang(language_name)
     if ts_lang is not None:
         try:
-            return _parse_with_tree_sitter(
+            chunks = _parse_with_tree_sitter(
                 source_bytes, source_lines, ts_lang, relative_path, language_name
             )
+            if chunks:
+                return chunks
+            # tree-sitter returned nothing (parser unavailable or no matches) → regex fallback
+            logger.debug("tree-sitter empty result for '%s', using fallback", relative_path)
+            return _chunk_with_fallback(source_lines, relative_path, language_name)
         except Exception:
             logger.warning("tree-sitter failed for '%s', using fallback", relative_path)
             return _chunk_with_fallback(source_lines, relative_path, language_name)

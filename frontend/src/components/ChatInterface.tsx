@@ -29,95 +29,110 @@ export function ChatInterface({ jobId }: Props) {
     }
   }
 
-  const hints = ['architecture overview', 'entry points', 'biggest debt', 'complex files']
+  const hints = ["Explique l'architecture", "Où sont les API ?", "Y a-t-il des problèmes de sécurité ?", "Comment fonctionne l'authentification ?"]
 
   return (
-    <section>
-      <h2 className="text-lg font-semibold mb-1">Ask</h2>
-      <p className="text-sm text-stone-400 mb-6">Search through the codebase</p>
-
-      <div className="border border-stone-200 rounded-lg bg-white overflow-hidden">
-        {/* Messages */}
-        <div ref={bottom} className="h-[340px] overflow-y-auto p-4 space-y-3">
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full gap-3">
-              <p className="text-sm text-stone-400">Ask anything about this codebase</p>
-              <div className="flex gap-1.5">
-                {hints.map(h => (
-                  <button
-                    key={h}
-                    onClick={() => setInput(h)}
-                    className="text-xs text-stone-400 hover:text-stone-600 px-2.5 py-1 bg-stone-50 rounded transition-colors"
-                  >
-                    {h}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {messages.map((m, i) => (
-            <div key={i} className={m.role === 'user' ? 'flex justify-end' : ''}>
-              <div className={`max-w-[85%] px-3.5 py-2.5 rounded-lg text-sm leading-relaxed ${
-                m.role === 'user'
-                  ? 'bg-teal-600 text-white'
-                  : 'bg-stone-50 text-stone-700'
-              }`}>
-                <p className="whitespace-pre-wrap">{m.text}</p>
-              </div>
-            </div>
-          ))}
-
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-stone-50 px-3.5 py-2.5 rounded-lg">
-                <div className="flex gap-1">
-                  <div className="w-1 h-1 rounded-full bg-stone-400 animate-bounce" />
-                  <div className="w-1 h-1 rounded-full bg-stone-400 animate-bounce" style={{ animationDelay: '100ms' }} />
-                  <div className="w-1 h-1 rounded-full bg-stone-400 animate-bounce" style={{ animationDelay: '200ms' }} />
-                </div>
-              </div>
-            </div>
-          )}
+    <section className="bg-white rounded-lg border border-[#eaeaea] shadow-sm overflow-hidden flex flex-col h-full min-h-[500px] fade-in">
+      <div className="p-5 border-b border-[#eaeaea] flex justify-between items-center shrink-0">
+        <div>
+          <h2 className="text-[16px] font-semibold text-[#171717] tracking-tight mb-0.5">Assistant Codebase</h2>
+          <p className="text-[13px] text-[#737373]">Posez des questions sur le code analysé</p>
         </div>
+      </div>
 
-        {/* Sources */}
-        {(() => {
-          const last = messages[messages.length - 1]
-          if (!last?.sources || last.sources.length === 0) return null
-          return (
-            <div className="px-4 py-2 border-t border-stone-100">
-              <div className="flex flex-wrap gap-1">
-                {last.sources.map((s: any, j: number) => (
-                  <span key={j} className="text-[10px] font-mono text-stone-400 bg-stone-50 px-1.5 py-0.5 rounded">
-                    {s.name && <span className="text-stone-600">{s.name}</span>} {s.file_path}:{s.start_line}
-                  </span>
-                ))}
-              </div>
+      <div ref={bottom} className="flex-1 overflow-y-auto p-5 space-y-5 bg-white">
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-5">
+            <div className="w-10 h-10 bg-[#fafafa] border border-[#eaeaea] rounded-md flex items-center justify-center">
+              <svg className="w-4 h-4 text-[#737373]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
             </div>
-          )
-        })()}
-
-        {/* Input */}
-        <div className="border-t border-stone-200 p-3">
-          <div className="flex gap-2">
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-              placeholder="Ask about the code…"
-              disabled={loading}
-              className="flex-1 px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/20 disabled:opacity-50 placeholder:text-stone-300"
-            />
-            <button
-              onClick={send}
-              disabled={loading || !input.trim()}
-              className="px-4 py-2 bg-stone-900 text-white text-sm font-medium rounded-lg hover:bg-stone-800 transition-colors disabled:opacity-40"
-            >
-              Send
-            </button>
+            <div className="max-w-xs">
+              <p className="text-[13px] text-[#737373]">Je suis prêt à répondre à vos questions sur ce projet. Que souhaitez-vous savoir ?</p>
+            </div>
+            
+            <div className="flex flex-wrap justify-center gap-2 max-w-sm mt-2">
+              {hints.map(h => (
+                <button
+                  key={h}
+                  onClick={() => setInput(h)}
+                  className="text-[12px] font-medium text-[#525252] bg-white border border-[#eaeaea] hover:bg-[#fafafa] px-2.5 py-1.5 rounded-md transition-colors shadow-xs"
+                >
+                  {h}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[85%] rounded-lg px-3.5 py-2.5 text-[13px] leading-relaxed shadow-xs border ${
+              m.role === 'user'
+                ? 'bg-[#171717] text-white border-[#171717]'
+                : 'bg-white text-[#171717] border-[#eaeaea]'
+            }`}>
+              <p className="whitespace-pre-wrap font-sans">{m.text}</p>
+              
+              {m.sources && m.sources.length > 0 && (
+                <div className={`mt-2.5 pt-2 border-t ${m.role === 'user' ? 'border-[#404040]' : 'border-[#eaeaea]'}`}>
+                  <p className={`text-[9px] font-semibold uppercase tracking-wider mb-1.5 ${m.role === 'user' ? 'text-[#a3a3a3]' : 'text-[#737373]'}`}>
+                    Sources
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {m.sources.map((s: any, j: number) => (
+                      <span key={j} className={`text-[10px] font-mono px-1.5 py-0.5 rounded border flex gap-1 ${
+                        m.role === 'user' 
+                          ? 'bg-[#262626] border-[#404040] text-[#d4d4d4]' 
+                          : 'bg-[#fafafa] border-[#eaeaea] text-[#737373]'
+                      }`}>
+                        {s.name && <span className="font-semibold">{s.name}</span>}
+                        <span className="opacity-80">{s.file_path}:{s.start_line}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-white border border-[#eaeaea] rounded-lg px-3.5 py-2.5 shadow-xs">
+              <div className="flex gap-1 items-center h-4">
+                <div className="w-1.5 h-1.5 bg-[#a3a3a3] rounded-full animate-bounce" />
+                <div className="w-1.5 h-1.5 bg-[#a3a3a3] rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+                <div className="w-1.5 h-1.5 bg-[#a3a3a3] rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="p-4 border-t border-[#eaeaea] bg-[#fafafa] shrink-0">
+        <form 
+          className="relative flex items-center" 
+          onSubmit={(e) => { e.preventDefault(); send() }}
+        >
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="Posez votre question..."
+            disabled={loading}
+            className="w-full pl-3 pr-10 py-2 bg-white border border-[#eaeaea] rounded-md text-[13px] focus:outline-none focus:border-[#a3a3a3] focus:ring-1 focus:ring-[#a3a3a3] transition-all disabled:opacity-50 font-sans shadow-xs placeholder:text-[#a3a3a3]"
+          />
+          <button
+            type="submit"
+            disabled={loading || !input.trim()}
+            className="absolute right-1.5 p-1 rounded-md bg-[#171717] text-white hover:bg-[#262626] disabled:opacity-50 disabled:bg-[#a3a3a3] transition-colors flex items-center justify-center shadow-xs"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </button>
+        </form>
       </div>
     </section>
   )

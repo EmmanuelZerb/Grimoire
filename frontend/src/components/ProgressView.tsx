@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react'
+
 const STEPS = [
-  { key: 'repo_ingestor', label: 'Ingest', desc: 'Clone & scan repository' },
-  { key: 'code_chunker', label: 'Chunk', desc: 'Parse code into chunks' },
-  { key: 'architecture_mapper', label: 'Map', desc: 'Build dependency graph' },
-  { key: 'tech_debt_analyzer', label: 'Score', desc: 'Analyze code quality' },
-  { key: 'qa_ready', label: 'Index', desc: 'Prepare vector search' },
+  { key: 'repo_ingestor', label: 'Acquisition', desc: 'Clonage et scan du dépôt' },
+  { key: 'code_chunker', label: 'Traitement', desc: 'Analyse des arbres syntaxiques' },
+  { key: 'architecture_mapper', label: 'Cartographie', desc: 'Génération du graphe de dépendances' },
+  { key: 'tech_debt_analyzer', label: 'Analyse', desc: 'Évaluation de la qualité du code' },
+  { key: 'qa_ready', label: 'Indexation', desc: 'Préparation de la base vectorielle' },
 ]
 
 const ORDER = ['idle', 'ingesting', 'chunking', 'mapping', 'analyzing_debt', 'qa_ready', 'completed', 'failed']
@@ -30,63 +32,103 @@ interface Props {
 export function ProgressView({ repoName, githubUrl, currentStatus, currentAgent, error, onReset }: Props) {
   const done = currentStatus === 'completed' || currentStatus === 'qa_ready'
 
+  // Small effect to trigger re-renders smoothly if needed
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   return (
-    <section className="py-20 fade-in">
-      <h2 className="text-xl font-semibold mb-1">{repoName}</h2>
-      <a
-        href={githubUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-xs text-stone-400 hover:text-stone-600 font-mono transition-colors"
-      >
-        {githubUrl}
-      </a>
-
-      <div className="mt-8 border border-stone-200 rounded-lg bg-white divide-y divide-stone-100">
-        {STEPS.map(step => {
-          const s = getState(step.key, currentStatus, currentAgent)
-          return (
-            <div key={step.key} className="flex items-center gap-3 px-4 py-3">
-              <div className="w-5 flex justify-center shrink-0">
-                {s === 'done' && (
-                  <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-                {s === 'running' && (
-                  <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-                )}
-                {s === 'failed' && (
-                  <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                )}
-                {s === 'waiting' && <div className="w-1.5 h-1.5 rounded-full bg-stone-300" />}
-              </div>
-              <span className={`text-sm ${
-                s === 'waiting' ? 'text-stone-400'
-                : s === 'running' ? 'text-stone-900 font-medium'
-                : 'text-stone-700'
-              }`}>
-                {step.label}
+    <section className={`py-12 max-w-[500px] mx-auto transition-opacity duration-500 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
+      <div className="bg-white border border-[#eaeaea] rounded-xl p-7 shadow-sm">
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="text-[16px] font-semibold tracking-tight text-[#171717] truncate mb-1">
+              {repoName}
+            </h2>
+            <p className="text-[13px] text-[#737373] font-mono truncate">{githubUrl}</p>
+          </div>
+          <div className="shrink-0 mt-0.5">
+            {done ? (
+              <span className="inline-flex text-[12px] font-medium px-2.5 py-1 bg-[#f5f5f5] text-[#171717] rounded-md border border-[#eaeaea] animate-pop-in">
+                Terminé
               </span>
-              <span className="text-xs text-stone-400 ml-auto">{step.desc}</span>
-            </div>
-          )
-        })}
-      </div>
-
-      {error && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg">
-          <p className="text-sm text-red-600">{error}</p>
+            ) : (
+              <span className="inline-flex text-[12px] font-medium px-2.5 py-1 bg-blue-50 text-blue-600 rounded-md border border-blue-100 items-center gap-1.5 shadow-sm">
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
+                En cours
+              </span>
+            )}
+          </div>
         </div>
-      )}
 
-      <div className="mt-6 space-y-2">
-        {done && <p className="text-sm text-green-600 font-medium">Analysis complete</p>}
-        <button onClick={onReset} className="text-sm text-stone-400 hover:text-stone-600 transition-colors">
-          Analyze another repo
-        </button>
+        <div className="relative space-y-0 ml-2">
+          {/* Vertical connecting line */}
+          <div className="absolute top-4 bottom-5 left-[7px] w-[2px] bg-[#f5f5f5] -z-10" />
+
+          {STEPS.map((step, i) => {
+            const s = getState(step.key, currentStatus, currentAgent)
+            const isRunning = s === 'running'
+            const isDone = s === 'done'
+            const isFailed = s === 'failed'
+            const isWaiting = s === 'waiting'
+            
+            return (
+              <div 
+                key={step.key} 
+                className={`relative flex items-start gap-4 pb-6 last:pb-0 transition-all duration-500 ${
+                  isRunning ? 'opacity-100 translate-x-0' : 
+                  isWaiting ? 'opacity-40 translate-x-0' : 'opacity-100 translate-x-0'
+                }`}
+              >
+                {/* Timeline Node */}
+                <div className="relative mt-0.5 shrink-0 z-10 bg-white py-1">
+                  {isDone ? (
+                    <div className="w-4 h-4 rounded-full bg-[#171717] flex items-center justify-center animate-pop-in shadow-sm">
+                      <svg className="w-2.5 h-2.5 text-white animate-checkmark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  ) : isRunning ? (
+                    <div className="w-4 h-4 rounded-full border-2 border-[#eaeaea] border-t-[#171717] animate-spin shadow-sm bg-white" />
+                  ) : isFailed ? (
+                    <div className="w-4 h-4 rounded-full bg-red-100 flex items-center justify-center shadow-sm">
+                      <svg className="w-2.5 h-2.5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="w-4 h-4 rounded-full border-2 border-[#f5f5f5] bg-white transition-colors duration-300" />
+                  )}
+                </div>
+                
+                {/* Content */}
+                <div className={`flex flex-col mt-[1px] transition-colors duration-300 ${isDone ? 'text-[#171717]' : isRunning ? 'text-[#171717]' : 'text-[#737373]'}`}>
+                  <span className="text-[14px] font-medium leading-none mb-1.5">
+                    {step.label}
+                  </span>
+                  <span className={`text-[13px] leading-snug ${isRunning ? 'text-[#525252]' : 'text-[#a3a3a3]'}`}>
+                    {step.desc}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {error && (
+          <div className="mt-8 p-3.5 bg-red-50 border border-red-100 rounded-lg text-[13px] text-red-700 animate-pop-in">
+            <span className="font-semibold block mb-1">Échec de l'exécution</span>
+            <span className="font-mono text-[12px] opacity-90">{error}</span>
+          </div>
+        )}
+
+        <div className="mt-8 pt-5 border-t border-[#eaeaea] flex justify-end">
+          <button 
+            onClick={onReset} 
+            className="text-[13px] font-medium text-[#737373] hover:text-[#171717] transition-colors bg-[#fafafa] hover:bg-[#f5f5f5] px-4 py-2 rounded-md border border-[#eaeaea] shadow-xs"
+          >
+            Annuler
+          </button>
+        </div>
       </div>
     </section>
   )

@@ -1,24 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg: #FAFAF9;
-  --border: #E7E5E4;
-  --text: #1C1917;
-  --text-2: #57534E;
-  --text-3: #A8A29E;
-  --accent: #0D9488;
-  --accent-hover: #0F766E;
-  --accent-bg: #F0FDFA;
-  --success: #16A34A;
-  --success-bg: #F0FDF4;
-  --error: #DC2626;
-  --error-bg: #FEF2F2;
-  --warning: #D97706;
-  --warning-bg: #FFFBEB;
+  --bg: #fafafa;
+  --text: #171717;
 }
 
 body {
@@ -28,24 +16,45 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── Typography Refinements ────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.02em;
+}
+
 /* ── Scrollbar ────────────────────────────────── */
-* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
-*::-webkit-scrollbar { width: 4px; }
+* { scrollbar-width: thin; scrollbar-color: #eaeaea transparent; }
+*::-webkit-scrollbar { width: 6px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+*::-webkit-scrollbar-thumb { background: #eaeaea; border-radius: 6px; }
+*::-webkit-scrollbar-thumb:hover { background: #d4d4d4; }
 
 /* ── Animation ────────────────────────────────── */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.fade-in { animation: fadeIn 0.5s ease both; }
+.fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes checkmark {
+  0% { stroke-dashoffset: 24; opacity: 0; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.5); opacity: 0; }
+  80% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-pop-in {
+  animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-checkmark path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: checkmark 0.4s ease-out 0.1s forwards;
+}
 
 /* ── Mermaid ──────────────────────────────────── */
 .mermaid-wrap svg { max-width: 100%; height: auto; }
-
-/* ── Severity badges ──────────────────────────── */
-.sev-low      { background: var(--success-bg); color: var(--success); }
-.sev-medium   { background: var(--warning-bg); color: var(--warning); }
-.sev-high     { background: var(--error-bg); color: var(--error); }
-.sev-critical { background: #FDF2F8; color: #DB2777; }

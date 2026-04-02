@@ -1,0 +1,112 @@
+INFO:     Will watch for changes in these directories: ['/Users/emmanuel.zerbib/Grimoire-1/backend']
+INFO:     Loading environment from '../.env'
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [53206] using WatchFiles
+INFO:     Started server process [53311]
+INFO:     Waiting for application startup.
+2026-04-02 17:38:09,609 | grimoire | INFO | Grimoire starting up...
+INFO:     Application startup complete.
+INFO:     127.0.0.1:63879 - "POST /api/analyze HTTP/1.1" 200 OK
+2026-04-02 17:43:58,220 | agents.repo_ingestor | INFO | [171292a05f24] Starting repo ingestion for: https://github.com/EmmanuelZerb/SnapToSprite
+2026-04-02 17:43:59,060 | agents.repo_ingestor | INFO | [171292a05f24] Repository cloned to: data/repos/171292a05f24
+2026-04-02 17:43:59,276 | agents.repo_ingestor | INFO | [171292a05f24] Ingestion complete: 15 files, 1131 lines, 6 languages
+2026-04-02 17:43:59,278 | agents.code_chunker | INFO | [171292a05f24] Starting code chunking
+2026-04-02 17:43:59,285 | agents.code_chunker | WARNING | tree-sitter parser not available for 'javascript'
+2026-04-02 17:43:59,285 | agents.code_chunker | WARNING | tree-sitter parser not available for 'javascript'
+2026-04-02 17:43:59,285 | agents.code_chunker | WARNING | tree-sitter parser not available for 'typescript'
+2026-04-02 17:43:59,285 | agents.code_chunker | WARNING | tree-sitter parser not available for 'typescript'
+2026-04-02 17:43:59,285 | agents.code_chunker | WARNING | tree-sitter parser not available for 'typescript'
+2026-04-02 17:43:59,285 | agents.code_chunker | WARNING | tree-sitter parser not available for 'typescript'
+2026-04-02 17:43:59,285 | agents.code_chunker | WARNING | tree-sitter parser not available for 'tsx'
+2026-04-02 17:43:59,285 | agents.code_chunker | WARNING | tree-sitter parser not available for 'tsx'
+2026-04-02 17:43:59,285 | agents.code_chunker | WARNING | tree-sitter parser not available for 'tsx'
+2026-04-02 17:43:59,286 | agents.code_chunker | WARNING | tree-sitter parser not available for 'typescript'
+2026-04-02 17:43:59,286 | agents.code_chunker | INFO | [171292a05f24] Chunking complete: 0 chunks from 10 files (0 errors)
+INFO:     127.0.0.1:63893 - "GET /api/status/171292a05f24 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63898 - "GET /api/diagram/171292a05f24 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:63899 - "GET /api/report/171292a05f24 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63903 - "GET /api/diagram/171292a05f24 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:63905 - "GET /api/report/171292a05f24 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63908 - "GET /api/report/171292a05f24 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63911 - "GET /api/report/171292a05f24 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63994 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64461 - "GET /api/status/171292a05f24 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64519 - "GET /api/diagram/171292a05f24 HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:64572 - "GET /api/report/171292a05f24 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64690 - "GET /api/report/171292a05f24 HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'agents/code_chunker.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-02 17:48:17,398 | grimoire | INFO | Grimoire shutting down...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [53311]
+INFO:     Started server process [84730]
+INFO:     Waiting for application startup.
+2026-04-02 17:49:15,659 | grimoire | INFO | Grimoire starting up...
+INFO:     Application startup complete.
+INFO:     127.0.0.1:49302 - "POST /api/analyze HTTP/1.1" 200 OK
+2026-04-02 17:49:17,504 | agents.repo_ingestor | INFO | [42075a9cfb49] Starting repo ingestion for: https://github.com/EmmanuelZerb/SnapToSprite
+2026-04-02 17:49:18,711 | agents.repo_ingestor | INFO | [42075a9cfb49] Repository cloned to: data/repos/42075a9cfb49
+2026-04-02 17:49:19,221 | agents.repo_ingestor | INFO | [42075a9cfb49] Ingestion complete: 15 files, 1131 lines, 6 languages
+2026-04-02 17:49:19,230 | agents.code_chunker | INFO | [42075a9cfb49] Starting code chunking
+2026-04-02 17:49:19,238 | agents.code_chunker | WARNING | tree-sitter parser not available for 'javascript'
+2026-04-02 17:49:19,243 | agents.code_chunker | WARNING | tree-sitter parser not available for 'javascript'
+2026-04-02 17:49:19,243 | agents.code_chunker | WARNING | tree-sitter parser not available for 'typescript'
+2026-04-02 17:49:19,244 | agents.code_chunker | WARNING | tree-sitter parser not available for 'typescript'
+2026-04-02 17:49:19,245 | agents.code_chunker | WARNING | tree-sitter parser not available for 'typescript'
+2026-04-02 17:49:19,246 | agents.code_chunker | WARNING | tree-sitter parser not available for 'typescript'
+2026-04-02 17:49:19,246 | agents.code_chunker | WARNING | tree-sitter parser not available for 'tsx'
+2026-04-02 17:49:19,247 | agents.code_chunker | WARNING | tree-sitter parser not available for 'tsx'
+2026-04-02 17:49:19,251 | agents.code_chunker | WARNING | tree-sitter parser not available for 'tsx'
+2026-04-02 17:49:19,254 | agents.code_chunker | WARNING | tree-sitter parser not available for 'typescript'
+2026-04-02 17:49:19,254 | agents.code_chunker | INFO | [42075a9cfb49] Chunking complete: 14 chunks from 10 files (0 errors)
+2026-04-02 17:49:19,256 | agents.architecture_mapper | INFO | [42075a9cfb49] Starting architecture mapping
+2026-04-02 17:49:19,259 | agents.architecture_mapper | INFO | [42075a9cfb49] Architecture mapping complete: 10 modules, 0 edges, pattern=monolith
+2026-04-02 17:49:19,259 | agents.tech_debt_analyzer | INFO | [42075a9cfb49] Starting tech debt analysis
+2026-04-02 17:49:19,262 | agents.tech_debt_analyzer | INFO | [42075a9cfb49] Tech debt analysis complete: overall_score=14.5, 3 categories
+2026-04-02 17:49:19,262 | agents.qa_interface | INFO | [42075a9cfb49] QA interface ready
+2026-04-02 17:49:23,621 | core.embeddings | INFO | [42075a9cfb49] Indexed 14 chunks into ChromaDB (collection: grimoire_42075a9cfb49)
+INFO:     127.0.0.1:49355 - "GET /api/status/42075a9cfb49 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49364 - "GET /api/diagram/42075a9cfb49 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49365 - "GET /api/report/42075a9cfb49 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49368 - "GET /api/diagram/42075a9cfb49 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49371 - "GET /api/report/42075a9cfb49 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49374 - "GET /api/report/42075a9cfb49 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49377 - "GET /api/report/42075a9cfb49 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49465 - "POST /api/analyze HTTP/1.1" 200 OK
+2026-04-02 17:49:55,623 | agents.repo_ingestor | INFO | [25b6a9c6f2ce] Starting repo ingestion for: https://github.com/EmmanuelZerb/MonkeyCamMeme
+2026-04-02 17:49:56,990 | agents.repo_ingestor | INFO | [25b6a9c6f2ce] Repository cloned to: data/repos/25b6a9c6f2ce
+WARNING:  WatchFiles detected changes in 'data/repos/25b6a9c6f2ce/src/pose_detector.py', 'data/repos/25b6a9c6f2ce/src/screenshot_handler.py', 'data/repos/25b6a9c6f2ce/src/face_detector.py', 'data/repos/25b6a9c6f2ce/src/ui_manager.py', 'data/repos/25b6a9c6f2ce/src/camera_handler.py', 'data/repos/25b6a9c6f2ce/src/expression_analyzer.py', 'data/repos/25b6a9c6f2ce/src/pose_analyzer.py', 'data/repos/25b6a9c6f2ce/src/__init__.py', 'data/repos/25b6a9c6f2ce/main.py', 'data/repos/25b6a9c6f2ce/src/meme_matcher.py'. Reloading...
+2026-04-02 17:49:57,147 | agents.repo_ingestor | INFO | [25b6a9c6f2ce] Ingestion complete: 11 files, 2839 lines, 2 languages
+2026-04-02 17:49:57,150 | agents.code_chunker | INFO | [25b6a9c6f2ce] Starting code chunking
+2026-04-02 17:49:57,156 | agents.code_chunker | WARNING | tree-sitter parser not available for 'python'
+2026-04-02 17:49:57,157 | agents.code_chunker | WARNING | tree-sitter parser not available for 'python'
+2026-04-02 17:49:57,157 | agents.code_chunker | WARNING | tree-sitter parser not available for 'python'
+2026-04-02 17:49:57,158 | agents.code_chunker | WARNING | tree-sitter parser not available for 'python'
+2026-04-02 17:49:57,160 | agents.code_chunker | WARNING | tree-sitter parser not available for 'python'
+2026-04-02 17:49:57,162 | agents.code_chunker | WARNING | tree-sitter parser not available for 'python'
+2026-04-02 17:49:57,165 | agents.code_chunker | WARNING | tree-sitter parser not available for 'python'
+2026-04-02 17:49:57,168 | agents.code_chunker | WARNING | tree-sitter parser not available for 'python'
+2026-04-02 17:49:57,170 | agents.code_chunker | WARNING | tree-sitter parser not available for 'python'
+2026-04-02 17:49:57,172 | agents.code_chunker | WARNING | tree-sitter parser not available for 'python'
+2026-04-02 17:49:57,175 | agents.code_chunker | INFO | [25b6a9c6f2ce] Chunking complete: 93 chunks from 10 files (0 errors)
+2026-04-02 17:49:57,175 | agents.architecture_mapper | INFO | [25b6a9c6f2ce] Starting architecture mapping
+2026-04-02 17:49:57,178 | agents.architecture_mapper | INFO | [25b6a9c6f2ce] Architecture mapping complete: 10 modules, 11 edges, pattern=monolith
+2026-04-02 17:49:57,178 | agents.tech_debt_analyzer | INFO | [25b6a9c6f2ce] Starting tech debt analysis
+2026-04-02 17:49:57,180 | agents.tech_debt_analyzer | INFO | [25b6a9c6f2ce] Tech debt analysis complete: overall_score=39.0, 3 categories
+2026-04-02 17:49:57,181 | agents.qa_interface | INFO | [25b6a9c6f2ce] QA interface ready
+2026-04-02 17:50:05,710 | core.embeddings | INFO | [25b6a9c6f2ce] Indexed 93 chunks into ChromaDB (collection: grimoire_25b6a9c6f2ce)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-02 17:50:05,816 | grimoire | INFO | Grimoire shutting down...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [84730]
+INFO:     Started server process [90562]
+INFO:     Waiting for application startup.
+2026-04-02 17:50:16,041 | grimoire | INFO | Grimoire starting up...
+INFO:     Application startup complete.
+INFO:     127.0.0.1:49484 - "GET /api/status/25b6a9c6f2ce HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49497 - "GET /api/status/25b6a9c6f2ce HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49500 - "GET /api/status/25b6a9c6f2ce HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49503 - "GET /api/status/25b6a9c6f2ce HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49506 - "GET /api/status/25b6a9c6f2ce HTTP/1.1" 404 Not Found

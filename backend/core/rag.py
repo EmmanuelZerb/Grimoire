@@ -10,7 +10,7 @@ import logging
 import os
 from typing import Any
 
-from anthropic import Anthropic
+from openai import OpenAI
 
 from core.embeddings import query_chunks
 from graph.state import ArchitectureReport, GrimoireState, RepoManifest, TechDebtReport
@@ -121,26 +121,29 @@ def ask_question(
         tech_debt=state.get("tech_debt_report"),
     )
 
-    # Call Claude
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    # Call OpenAI
+    api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         return {
             "answer": (
-                "Error: No ANTHROPIC_API_KEY configured. "
+                "Error: No OPENAI_API_KEY configured. "
                 "Please set the environment variable and restart the server."
             ),
             "sources": [],
             "chunks_used": 0,
         }
 
-    client = Anthropic(api_key=api_key)
+    client = OpenAI(api_key=api_key)
 
     try:
-        response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+        response = client.chat.completions.create(
+            model="gpt-4o",
             max_tokens=1024,
-            system=SYSTEM_PROMPT,
             messages=[
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT,
+                },
                 {
                     "role": "user",
                     "content": f"# Codebase Context\n\n{context}\n\n# Question\n\n{question}",
@@ -148,11 +151,11 @@ def ask_question(
             ],
         )
 
-        answer = response.content[0].text if response.content else "No answer generated."
+        answer = response.choices[0].message.content if response.choices else "No answer generated."
 
     except Exception as e:
-        logger.error("[%s] Claude API call failed: %s", job_id, e)
-        answer = f"Error calling Claude API: {e}"
+        logger.error("[%s] OpenAI API call failed: %s", job_id, e)
+        answer = f"Error calling OpenAI API: {e}"
 
     # Build sources
     sources = [
