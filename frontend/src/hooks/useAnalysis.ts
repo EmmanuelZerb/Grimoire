@@ -49,9 +49,12 @@ export function useAnalysis() {
             error: status.error || 'Analysis failed',
           }))
         }
-      } catch {
+      } catch (err: any) {
         stopPolling()
-        setState(prev => ({ ...prev, phase: 'failed', error: 'Lost connection to server' }))
+        const msg = err?.message?.includes('Job not found')
+          ? 'Le serveur a redémarré et a perdu l\'analyse. Relancez l\'analyse.'
+          : 'Connexion au serveur perdue. Vérifiez que le backend tourne.'
+        setState(prev => ({ ...prev, phase: 'failed', error: msg }))
       }
     }, 2000)
   }, [stopPolling])

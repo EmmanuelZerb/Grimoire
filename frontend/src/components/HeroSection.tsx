@@ -9,9 +9,33 @@ interface Props {
 export function HeroSection({ onAnalyze, isLoading, error }: Props) {
   const [url, setUrl] = useState('')
 
+  const [validationError, setValidationError] = useState<string | null>(null)
+
+  const normalizeUrl = (raw: string): string | null => {
+    const trimmed = raw.trim()
+    if (!trimmed) return null
+
+    let url = trimmed
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      if (url.startsWith('github.com/')) url = `https://${url}`
+      else url = `https://github.com/${url}`
+    }
+
+    // Must match https://github.com/owner/repo
+    const githubPattern = /^https?:\/\/github\.com\/[\w.-]+\/[\w.-]+(\/.*)?$/
+    if (!githubPattern.test(url)) return null
+    return url
+  }
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (url.trim()) onAnalyze(url.trim())
+    setValidationError(null)
+    const normalized = normalizeUrl(url)
+    if (!normalized) {
+      setValidationError('URL invalide. Format attendu : github.com/proprietaire/depot')
+      return
+    }
+    onAnalyze(normalized)
   }
 
   return (
@@ -28,7 +52,7 @@ export function HeroSection({ onAnalyze, isLoading, error }: Props) {
         <form onSubmit={submit} className="w-full relative z-10 mb-8 max-w-lg mx-auto">
           <div className="flex flex-col sm:flex-row gap-2">
             <input
-              type="url"
+              type="text"
               value={url}
               onChange={e => setUrl(e.target.value)}
               placeholder="https://github.com/proprietaire/depot"
@@ -43,9 +67,9 @@ export function HeroSection({ onAnalyze, isLoading, error }: Props) {
               {isLoading ? 'Analyse...' : 'Analyser le dépôt'}
             </button>
           </div>
-          {error && (
+          {(error || validationError) && (
              <div className="mt-3 text-[13px] text-red-600 font-medium text-left">
-               {error}
+               {validationError || error}
              </div>
           )}
         </form>
