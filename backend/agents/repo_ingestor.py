@@ -299,28 +299,58 @@ def _build_language_stats(
     return tuple(sorted(stats, key=lambda s: s.total_lines, reverse=True))
 
 
+def _read_readme(repo_path: Path) -> str | None:
+    """Try to read the project README file."""
+    for name in ("README.md", "README.rst", "README.txt", "README"):
+        candidate = repo_path / name
+        if candidate.is_file():
+            try:
+                return candidate.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                return None
+    return None
+
+
 def _detect_architectural_patterns(repo_path: Path) -> tuple[str, ...]:
-    """Detect architectural patterns from directory structure."""
+    """Detect architectural patterns from directory structure.
+
+    Checks both top-level and one level deep (e.g. src/) so that
+    repos like ``src/models``, ``src/views``, ``src/controllers``
+    are still recognised.
+    """
     patterns: list[str] = []
     top_dirs = {d.name for d in repo_path.iterdir() if d.is_dir()}
+    top_files = {f.name for f in repo_path.iterdir() if f.is_file()}
+
+    # Also collect dirs inside src/, app/, backend/, frontend/ if they exist
+    inner_dirs: set[str] = set()
+    for scope in ("src", "app", "backend", "frontend"):
+        scope_path = repo_path / scope
+        if scope_path.is_dir():
+            for d in scope_path.iterdir():
+                if d.is_dir():
+                    inner_dirs.add(d.name)
+
+    all_dirs = top_dirs | inner_dirs
 
     # MVC pattern
-    if {"models", "views", "controllers"}.issubset(top_dirs) or \
-       {"model", "view", "controller"}.issubset(top_dirs):
+    if {"models", "views", "controllers"}.issubset(all_dirs) or \
+       {"model", "view", "controller"}.issubset(all_dirs):
         patterns.append("MVC")
 
     # Layered architecture
-    if {"controllers", "services", "repositories"}.issubset(top_dirs) or \
-       {"routes", "services", "models"}.issubset(top_dirs):
+    if {"controllers", "services", "repositories"}.issubset(all_dirs) or \
+       {"routes", "services", "models"}.issubset(all_dirs) or \
+       {"handlers", "services", "repositories"}.issubset(all_dirs):
         patterns.append("Layered")
 
     # Hexagonal / Ports & Adapters
-    if {"ports", "adapters"}.issubset(top_dirs) or \
-       {"domain", "infrastructure", "application"}.issubset(top_dirs):
+    if {"ports", "adapters"}.issubset(all_dirs) or \
+       {"domain", "infrastructure", "application"}.issubset(all_dirs):
         patterns.append("Hexagonal")
 
     # Microservices-like
-    services = [d for d in top_dirs if "service" in d.lower()]
+    services = [d for d in all_dirs if "service" in d.lower()]
     if len(services) >= 2:
         patterns.append("Microservices-like")
 
@@ -329,25 +359,34 @@ def _detect_architectural_patterns(repo_path: Path) -> tuple[str, ...]:
         patterns.append("Monorepo")
 
     # API structure
-    if {"api", "routes", "middleware"}.issubset(top_dirs) or \
-       {"api", "controllers"}.issubset(top_dirs):
+    if {"api", "routes", "middleware"}.issubset(all_dirs) or \
+       {"api", "controllers"}.issubset(all_dirs):
         patterns.append("API")
 
-    # Frontend framework
-    if {"src", "public", "components"}.issubset(top_dirs):
+    # Frontend SPA
+    if {"components", "hooks", "pages"}.issubset(all_dirs) or \
+       {"components", "hooks", "views"}.issubset(all_dirs) or \
+       ("src" in top_dirs and "components" in inner_dirs and "public" in top_dirs):
         patterns.append("Frontend SPA")
 
     # Django
-    if "manage.py" in {f.name for f in repo_path.iterdir() if f.is_file()} and \
-       "settings" in top_dirs:
+    if "manage.py" in top_files and "settings" in top_dirs:
         patterns.append("Django")
 
     # Next.js
     if any(f.name.startswith("next.config") for f in repo_path.iterdir() if f.is_file()):
         patterns.append("Next.js")
 
-    if not patterns:
-        patterns.append("Monolith")
+    # React app (Create React App / Vite)
+    if ("package.json" in top_files and "components" in inner_dirs) or \
+       {"components", "assets"}.issubset(inner_dirs):
+        if "Frontend SPA" not in patterns:
+            patterns.append("React App")
+
+    # FastAPI / Flask backend
+    if {"api", "core", "models"}.issubset(all_dirs) or \
+       {"routes", "models", "schemas"}.issubset(all_dirs):
+        patterns.append("API Backend")
 
     return tuple(patterns)
 
@@ -382,7 +421,17 @@ def repo_ingestor(state: GrimoireState) -> GrimoireState:
             shutil.rmtree(clone_dir)
 
         clone_dir.parent.mkdir(parents=True, exist_ok=True)
-        Repo.clone_from(github_url, clone_dir, depth=50)
+
+        # Disable git's clone protection so repos with post-checkout hooks don't fail
+        prev = os.environ.get("GIT_CLONE_PROTECTION_ACTIVE")
+        os.environ["GIT_CLONE_PROTECTION_ACTIVE"] = "false"
+        try:
+            Repo.clone_from(github_url, clone_dir, depth=50)
+        finally:
+            if prev is None:
+                os.environ.pop("GIT_CLONE_PROTECTION_ACTIVE", None)
+            else:
+                os.environ["GIT_CLONE_PROTECTION_ACTIVE"] = prev
         logger.info("[%s] Repository cloned to: %s", job_id, clone_dir)
 
         # Open for analysis
@@ -395,6 +444,9 @@ def repo_ingestor(state: GrimoireState) -> GrimoireState:
         last_commits = _extract_last_commits(repo)
         directory_tree = _build_directory_tree(clone_dir)
         detected_patterns = _detect_architectural_patterns(clone_dir)
+
+        # Try to read the project README
+        readme_content = _read_readme(clone_dir)
 
         # Extract repo name from URL
         repo_name = github_url.rstrip("/").split("/")[-1].removesuffix(".git")
@@ -428,6 +480,7 @@ def repo_ingestor(state: GrimoireState) -> GrimoireState:
             **state,
             "status": PipelineStatus.INGESTING,
             "repo_manifest": manifest,
+            "readme_content": readme_content,
             "agent_logs": state.get("agent_logs", []) + [completed_log],
         }
 

@@ -18,7 +18,7 @@ export function TechDebtReport({ jobId }: Props) {
   }, [jobId])
 
   if (!report) return (
-    <div className="bg-white rounded-lg border border-[#eaeaea] p-6 shadow-sm flex items-center justify-center min-h-[300px] text-[#a3a3a3] text-[13px]">
+    <div className="bg-[var(--bg-card)] rounded-lg border border-[var(--border)] p-6 shadow-sm flex items-center justify-center min-h-[300px] text-[var(--text-faint)] text-[13px]">
       Évaluation de la dette technique...
     </div>
   )
@@ -26,10 +26,10 @@ export function TechDebtReport({ jobId }: Props) {
   const theme = getScoreTheme(report.overall_score)
 
   return (
-    <section className="bg-white rounded-lg border border-[#eaeaea] p-6 shadow-sm fade-in h-full flex flex-col">
+    <section className="bg-[var(--bg-card)] rounded-lg border border-[var(--border)] p-6 shadow-sm fade-in h-full flex flex-col">
       <div className="mb-5">
-        <h2 className="text-[16px] font-semibold text-[#171717] mb-0.5 tracking-tight">Dette Technique</h2>
-        <p className="text-[13px] text-[#737373]">Qualité du code et maintenabilité</p>
+        <h2 className="text-[16px] font-semibold text-[var(--text)] mb-0.5 tracking-tight">Dette Technique</h2>
+        <p className="text-[13px] text-[var(--text-muted)]">Qualité du code et maintenabilité</p>
       </div>
 
       {/* Score Box */}
@@ -43,7 +43,7 @@ export function TechDebtReport({ jobId }: Props) {
           <div className={`text-[11px] font-semibold uppercase tracking-wider mb-0.5 ${theme.color}`}>
             Dette {theme.label}
           </div>
-          <p className="text-[13px] text-[#404040]">
+          <p className="text-[13px] text-[var(--text-secondary)]">
             {report.overall_score < 25
               ? 'Base de code saine. L\'architecture est bien maintenue.'
               : report.overall_score < 50
@@ -64,10 +64,10 @@ export function TechDebtReport({ jobId }: Props) {
               return (
                 <div key={cat.name}>
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-[12px] font-medium text-[#404040]">{cat.name}</span>
-                    <span className="text-[12px] font-semibold text-[#171717] tabular-nums">{Math.round(cat.score)}</span>
+                    <span className="text-[12px] font-medium text-[var(--text-secondary)]">{cat.name}</span>
+                    <span className="text-[12px] font-semibold text-[var(--text)] tabular-nums">{Math.round(cat.score)}</span>
                   </div>
-                  <div className="h-1 w-full bg-[#f5f5f5] rounded-full overflow-hidden">
+                  <div className="h-1 w-full bg-[var(--bg-subtle)] rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-700 ${catTheme.bar}`}
                       style={{ width: `${cat.score}%` }}
@@ -84,18 +84,18 @@ export function TechDebtReport({ jobId }: Props) {
       <div className="space-y-4 mt-auto">
         {report.todos_fixmes?.length > 0 && (
           <div>
-            <h3 className="text-[11px] font-semibold text-[#737373] uppercase tracking-wider mb-2">TODOs & FIXMEs ({report.todos_fixmes.length})</h3>
+            <h3 className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">TODOs & FIXMEs ({report.todos_fixmes.length})</h3>
             <div className="space-y-2 max-h-[150px] overflow-y-auto">
               {report.todos_fixmes.slice(0, 10).map((t: any, i: number) => (
                 <div key={i} className="flex items-start gap-2">
                   <span className={`text-[9px] font-mono font-semibold px-1 py-0.5 rounded-[3px] shrink-0 mt-[3px] ${
                     t.type === 'FIXME' ? 'bg-red-50 text-red-600 border border-red-100' : 
                     t.type === 'HACK' ? 'bg-orange-50 text-orange-600 border border-orange-100' : 
-                    'bg-[#f5f5f5] text-[#525252] border border-[#eaeaea]'
+                    'bg-[var(--bg-subtle)] text-[var(--text-faint)] border border-[var(--border)]'
                   }`}>
                     {t.type}
                   </span>
-                  <p className="text-[13px] text-[#525252] leading-snug truncate" title={t.text}>{t.text}</p>
+                  <p className="text-[13px] text-[var(--text-faint)] leading-snug truncate" title={t.text}>{t.text}</p>
                 </div>
               ))}
             </div>
@@ -104,15 +104,15 @@ export function TechDebtReport({ jobId }: Props) {
 
         {report.outdated_dependencies?.length > 0 && (
           <div>
-            <h3 className="text-[11px] font-semibold text-[#737373] uppercase tracking-wider mb-2 border-t border-[#eaeaea] pt-4">Dépendances Obsolètes ({report.outdated_dependencies.length})</h3>
+            <h3 className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2 border-t border-[var(--border)] pt-4">Dépendances Obsolètes ({report.outdated_dependencies.length})</h3>
             <div className="space-y-1 max-h-[150px] overflow-y-auto">
               {report.outdated_dependencies.slice(0, 10).map((d: any, i: number) => (
                 <div key={i} className="flex justify-between items-center text-[13px]">
                   <div className="flex items-baseline gap-2 overflow-hidden">
-                    <span className="font-mono font-medium text-[#171717] truncate">{d.package}</span>
-                    <span className="text-[11px] text-[#a3a3a3] font-mono truncate">{d.file?.split('/').pop()}</span>
+                    <span className="font-mono font-medium text-[var(--text)] truncate">{d.package}</span>
+                    <span className="text-[11px] text-[var(--text-faint)] font-mono truncate">{d.file?.split('/').pop()}</span>
                   </div>
-                  <span className="font-mono text-[11px] text-[#525252] shrink-0 ml-2">
+                  <span className="font-mono text-[11px] text-[var(--text-faint)] shrink-0 ml-2">
                     {d.version}
                   </span>
                 </div>

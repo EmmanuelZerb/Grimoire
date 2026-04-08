@@ -70,8 +70,45 @@ def _normalize_dependency_name(
     """Try to match a raw dependency string to a known internal module path.
 
     Returns the matched module path, or None if the dependency is external.
+    Handles relative imports (./foo, ../bar) and scoped packages (@scope/foo).
     """
-    dep_clean = dep.strip().split(".")[-1] if "." in dep else dep.strip()
+    dep = dep.strip()
+    if not dep:
+        return None
+
+    # Handle relative imports: ./foo, ../bar, ./foo/bar
+    if dep.startswith("./") or dep.startswith("../"):
+        dep_path = dep.lstrip("./").lstrip("../")
+        # Remove extension
+        dot = dep_path.rfind(".")
+        if dot > 0:
+            dep_path = dep_path[:dot]
+        # Remove /index suffix
+        if dep_path.endswith("/index"):
+            dep_path = dep_path[:-6]
+        if not dep_path:
+            return None
+        # Try exact suffix match
+        for module in all_modules:
+            if module.endswith(dep_path) or module == dep_path:
+                return module
+        # Try last segment
+        last = dep_path.split("/")[-1]
+        for module in all_modules:
+            if module.split("/")[-1] == last:
+                return module
+        return None
+
+    # Strip scoped package prefix for matching
+    dep_clean = dep
+    if dep_clean.startswith("@"):
+        dep_clean = dep_clean.split("/", 1)[-1] if "/" in dep_clean else dep_clean[1:]
+
+    # Strip extension
+    dot = dep_clean.rfind(".")
+    if dot > 0:
+        dep_clean = dep_clean[:dot]
+
     if not dep_clean:
         return None
 
@@ -203,11 +240,7 @@ def _determine_pattern(
 ) -> str:
     """Determine the architectural pattern, using manifest hints as primary source."""
     if manifest and manifest.detected_patterns:
-        patterns = manifest.detected_patterns
-        priority = ["MVC", "Hexagonal", "Layered", "Microservices-like", "Monorepo"]
-        for p in priority:
-            if p in patterns:
-                return p.lower()
+        return ", ".join(manifest.detected_patterns)
 
     # Fallback based on graph structure
     if not graph.nodes or not graph.edges:
@@ -220,24 +253,73 @@ def _determine_pattern(
 
 
 def _generate_mermaid(graph: nx.DiGraph) -> str:
-    """Generate a Mermaid graph TD diagram from the dependency graph."""
-    lines = ["graph TD"]
+    """Generate a Mermaid graph LR diagram from the dependency graph.
+
+    If the graph has no edges, structural edges are inferred from
+    shared directory prefixes so the diagram is never disconnected.
+    """
+    lines = [
+        "%%{init: {'flowchart': {'defaultRenderer': 'dagre', 'rankDirection': 'LR'}}}%%",
+        "flowchart LR",
+    ]
 
     if not graph.nodes:
         return "\n".join(lines)
 
     # Create node ID mapping
     node_ids: dict[str, str] = {}
-    for i, node in enumerate(sorted(graph.nodes)):
+    sorted_nodes = sorted(graph.nodes)
+    for i, node in enumerate(sorted_nodes):
         label = node.split("/")[-1] if "/" in node else node
-        # Sanitize for Mermaid
         label = label.replace('"', "'")
         node_ids[node] = f"N{i}"
         lines.append(f'    {node_ids[node]}["{label}"]')
 
-    # Add edges
+    # Add real dependency edges
+    edges_added: set[tuple[str, str]] = set()
     for source, target in sorted(graph.edges):
         lines.append(f"    {node_ids[source]} --> {node_ids[target]}")
+        edges_added.add((source, target))
+
+    # Link orphan nodes (no edges) with invisible edges to force horizontal layout
+    nodes_with_edges: set[str] = set()
+    for s, t in edges_added:
+        nodes_with_edges.add(s)
+        nodes_with_edges.add(t)
+    orphans = [n for n in sorted_nodes if n not in nodes_with_edges]
+    if len(orphans) > 1:
+        for i in range(len(orphans) - 1):
+            lines.append(f"    {node_ids[orphans[i]]} ~~~ {node_ids[orphans[i + 1]]}")
+
+    # If no edges were found, infer structural edges from directory groups
+    if not edges_added and len(sorted_nodes) > 1:
+        groups: dict[str, list[str]] = {}
+        for node in sorted_nodes:
+            parts = node.split("/")
+            prefix = "/".join(parts[:-1]) if len(parts) > 1 else ""
+            groups.setdefault(prefix, []).append(node)
+
+        # Connect entry point / first node to one node per group
+        all_group_keys = sorted(groups.keys())
+        first_node = sorted_nodes[0]
+        seen_targets: set[str] = set()
+
+        for gkey in all_group_keys:
+            for gnode in groups[gkey]:
+                if gnode == first_node:
+                    continue
+                if gnode not in seen_targets:
+                    lines.append(f"    {node_ids[first_node]} --> {node_ids[gnode]}")
+                    seen_targets.add(gnode)
+                    break
+
+        # Connect groups sequentially
+        prev_group_nodes = groups.get(all_group_keys[0], [])
+        for gkey in all_group_keys[1:]:
+            cur_group_nodes = groups[gkey]
+            if prev_group_nodes and cur_group_nodes:
+                lines.append(f"    {node_ids[prev_group_nodes[-1]]} --> {node_ids[cur_group_nodes[0]]}")
+            prev_group_nodes = cur_group_nodes
 
     return "\n".join(lines)
 

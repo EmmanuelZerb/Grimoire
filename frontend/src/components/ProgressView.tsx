@@ -14,9 +14,12 @@ const IDX: Record<string, number> = {
 }
 
 function getState(key: string, st: string | null, agent: string | null) {
-  if (st === 'failed' && agent === key) return 'failed'
+  const failed = st === 'failed'
+  if (failed && agent === key) return 'failed'
   if (agent === key && st !== 'completed') return 'running'
-  if (ORDER.indexOf(st || '') > IDX[key]) return 'done'
+  // When the pipeline has failed, any step after the failed one must stay "waiting"
+  if (failed && IDX[key] > IDX[agent || '']) return 'waiting'
+  if (ORDER.indexOf(st || '') >= IDX[key]) return 'done'
   return 'waiting'
 }
 
@@ -38,17 +41,17 @@ export function ProgressView({ repoName, githubUrl, currentStatus, currentAgent,
 
   return (
     <section className={`py-12 max-w-[500px] mx-auto transition-opacity duration-500 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
-      <div className="bg-white border border-[#eaeaea] rounded-xl p-7 shadow-sm">
+      <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-7 shadow-sm">
         <div className="mb-8 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 className="text-[16px] font-semibold tracking-tight text-[#171717] truncate mb-1">
+            <h2 className="text-[16px] font-semibold tracking-tight text-[var(--text)] truncate mb-1">
               {repoName}
             </h2>
-            <p className="text-[13px] text-[#737373] font-mono truncate">{githubUrl}</p>
+            <p className="text-[13px] text-[var(--text-muted)] font-mono truncate">{githubUrl}</p>
           </div>
           <div className="shrink-0 mt-0.5">
             {done ? (
-              <span className="inline-flex text-[12px] font-medium px-2.5 py-1 bg-[#f5f5f5] text-[#171717] rounded-md border border-[#eaeaea] animate-pop-in">
+              <span className="inline-flex text-[12px] font-medium px-2.5 py-1 bg-[var(--bg-subtle)] text-[var(--text)] rounded-md border border-[var(--border)] animate-pop-in">
                 Terminé
               </span>
             ) : (
@@ -62,9 +65,9 @@ export function ProgressView({ repoName, githubUrl, currentStatus, currentAgent,
 
         <div className="relative space-y-0 ml-2">
           {/* Vertical connecting line */}
-          <div className="absolute top-4 bottom-5 left-[7px] w-[2px] bg-[#f5f5f5] -z-10" />
+          <div className="absolute top-4 bottom-5 left-[7px] w-[2px] bg-[var(--bg-subtle)] -z-10" />
 
-          {STEPS.map((step, i) => {
+          {STEPS.map((step) => {
             const s = getState(step.key, currentStatus, currentAgent)
             const isRunning = s === 'running'
             const isDone = s === 'done'
@@ -80,15 +83,15 @@ export function ProgressView({ repoName, githubUrl, currentStatus, currentAgent,
                 }`}
               >
                 {/* Timeline Node */}
-                <div className="relative mt-0.5 shrink-0 z-10 bg-white py-1">
+                <div className="relative mt-0.5 shrink-0 z-10 bg-[var(--bg-card)] py-1">
                   {isDone ? (
-                    <div className="w-4 h-4 rounded-full bg-[#171717] flex items-center justify-center animate-pop-in shadow-sm">
+                    <div className="w-4 h-4 rounded-full bg-[var(--text)] flex items-center justify-center animate-pop-in shadow-sm">
                       <svg className="w-2.5 h-2.5 text-white animate-checkmark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
                   ) : isRunning ? (
-                    <div className="w-4 h-4 rounded-full border-2 border-[#eaeaea] border-t-[#171717] animate-spin shadow-sm bg-white" />
+                    <div className="w-4 h-4 rounded-full border-2 border-[var(--border)] border-t-[var(--text)] animate-spin shadow-sm bg-[var(--bg-card)]" />
                   ) : isFailed ? (
                     <div className="w-4 h-4 rounded-full bg-red-100 flex items-center justify-center shadow-sm">
                       <svg className="w-2.5 h-2.5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -96,16 +99,16 @@ export function ProgressView({ repoName, githubUrl, currentStatus, currentAgent,
                       </svg>
                     </div>
                   ) : (
-                    <div className="w-4 h-4 rounded-full border-2 border-[#f5f5f5] bg-white transition-colors duration-300" />
+                    <div className="w-4 h-4 rounded-full border-2 border-[var(--bg-subtle)] bg-[var(--bg-card)] transition-colors duration-300" />
                   )}
                 </div>
                 
                 {/* Content */}
-                <div className={`flex flex-col mt-[1px] transition-colors duration-300 ${isDone ? 'text-[#171717]' : isRunning ? 'text-[#171717]' : 'text-[#737373]'}`}>
+                <div className={`flex flex-col mt-[1px] transition-colors duration-300 ${isDone ? 'text-[var(--text)]' : isRunning ? 'text-[var(--text)]' : 'text-[var(--text-muted)]'}`}>
                   <span className="text-[14px] font-medium leading-none mb-1.5">
                     {step.label}
                   </span>
-                  <span className={`text-[13px] leading-snug ${isRunning ? 'text-[#525252]' : 'text-[#a3a3a3]'}`}>
+                  <span className={`text-[13px] leading-snug ${isRunning ? 'text-[var(--text-faint)]' : 'text-[var(--text-faint)]'}`}>
                     {step.desc}
                   </span>
                 </div>
@@ -121,10 +124,10 @@ export function ProgressView({ repoName, githubUrl, currentStatus, currentAgent,
           </div>
         )}
 
-        <div className="mt-8 pt-5 border-t border-[#eaeaea] flex justify-end">
+        <div className="mt-8 pt-5 border-t border-[var(--border)] flex justify-end">
           <button 
             onClick={onReset} 
-            className="text-[13px] font-medium text-[#737373] hover:text-[#171717] transition-colors bg-[#fafafa] hover:bg-[#f5f5f5] px-4 py-2 rounded-md border border-[#eaeaea] shadow-xs"
+            className="text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text)] transition-colors bg-[var(--bg)] hover:bg-[var(--bg-subtle)] px-4 py-2 rounded-md border border-[var(--border)] shadow-xs"
           >
             Annuler
           </button>

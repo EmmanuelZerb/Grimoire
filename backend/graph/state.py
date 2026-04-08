@@ -201,3 +201,7 @@ class GrimoireState(TypedDict, total=False):
     total_tokens_used: int
     started_at: float | None
     completed_at: float | None
+
+    # --- README ---
+    readme_content: str | None
+    generated_readme: str | None

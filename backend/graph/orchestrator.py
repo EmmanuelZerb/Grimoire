@@ -125,4 +125,6 @@ def create_initial_state(github_url: str) -> GrimoireState:
         "total_tokens_used": 0,
         "started_at": datetime.now(timezone.utc).timestamp(),
         "completed_at": None,
+        "readme_content": None,
+        "generated_readme": None,
     }

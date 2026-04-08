@@ -76,6 +76,21 @@ export async function sendChat(jobId: string, question: string) {
   return res.json()
 }
 
+export async function getReadme(jobId: string): Promise<{ content: string | null; source: string | null }> {
+  const res = await fetch(`${API_BASE}/readme/${jobId}`)
+  if (!res.ok) throw new Error('README not available')
+  return res.json()
+}
+
+export async function generateReadme(jobId: string): Promise<{ content: string; source: string }> {
+  const res = await fetch(`${API_BASE}/readme/${jobId}/generate`, { method: 'POST' })
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.detail || 'README generation failed')
+  }
+  return res.json()
+}
+
 export function extractRepoName(url: string): string {
   return url.replace(/\/$/, '').split('/').pop()?.replace('.git', '') || 'unknown'
 }
