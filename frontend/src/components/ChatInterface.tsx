@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { sendChat } from '../lib/api'
+import { streamChat } from '../lib/api'
 
 interface Props { jobId: string; repoName?: string }
 
@@ -17,16 +17,41 @@ export function ChatInterface({ jobId }: Props) {
     const q = input.trim()
     if (!q || loading) return
     setInput('')
-    setMessages(p => [...p, { role: 'user', text: q }])
+    setMessages(prev => [...prev, { role: 'user' as const, text: q }])
     setLoading(true)
-    try {
-      const res = await sendChat(jobId, q)
-      setMessages(p => [...p, { role: 'ai', text: res.answer, sources: res.sources }])
-    } catch (e: any) {
-      setMessages(p => [...p, { role: 'ai', text: e.message }])
-    } finally {
-      setLoading(false)
-    }
+
+    // Add empty AI message placeholder
+    const aiIndex = messages.length + 1
+    setMessages(prev => [...prev, { role: 'ai' as const, text: '', sources: [] as any[] }])
+
+    await streamChat(jobId, q, {
+      onToken: (token) => {
+        setMessages(prev => {
+          const updated = [...prev]
+          const msg = updated[aiIndex]
+          if (msg) updated[aiIndex] = { ...msg, text: msg.text + token }
+          return updated
+        })
+      },
+      onSources: (sources) => {
+        setMessages(prev => {
+          const updated = [...prev]
+          const msg = updated[aiIndex]
+          if (msg) updated[aiIndex] = { ...msg, sources }
+          return updated
+        })
+      },
+      onDone: () => setLoading(false),
+      onError: (error) => {
+        setMessages(prev => {
+          const updated = [...prev]
+          const msg = updated[aiIndex]
+          if (msg) updated[aiIndex] = { ...msg, text: error.message }
+          return updated
+        })
+        setLoading(false)
+      },
+    })
   }
 
   const hints = ["Explique l'architecture", "Où sont les API ?", "Y a-t-il des problèmes de sécurité ?", "Comment fonctionne l'authentification ?"]
@@ -51,7 +76,7 @@ export function ChatInterface({ jobId }: Props) {
             <div className="max-w-xs">
               <p className="text-[13px] text-[var(--text-muted)]">Je suis prêt à répondre à vos questions sur ce projet. Que souhaitez-vous savoir ?</p>
             </div>
-            
+
             <div className="flex flex-wrap justify-center gap-2 max-w-sm mt-2">
               {hints.map(h => (
                 <button
@@ -66,54 +91,53 @@ export function ChatInterface({ jobId }: Props) {
           </div>
         )}
 
-        {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] rounded-lg px-3.5 py-2.5 text-[13px] leading-relaxed shadow-xs border ${
-              m.role === 'user'
-                ? 'bg-[var(--text)] text-[var(--accent-text)] border-[var(--text)]'
-                : 'bg-[var(--bg-card)] text-[var(--text)] border-[var(--border)]'
-            }`}>
-              <p className="whitespace-pre-wrap font-sans">{m.text}</p>
-              
-              {m.sources && m.sources.length > 0 && (
-                <div className={`mt-2.5 pt-2 border-t ${m.role === 'user' ? 'border-[var(--text-secondary)]' : 'border-[var(--border)]'}`}>
-                  <p className={`text-[9px] font-semibold uppercase tracking-wider mb-1.5 ${m.role === 'user' ? 'text-[var(--text-faint)]' : 'text-[var(--text-muted)]'}`}>
-                    Sources
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {m.sources.map((s: any, j: number) => (
-                      <span key={j} className={`text-[10px] font-mono px-1.5 py-0.5 rounded border flex gap-1 ${
-                        m.role === 'user'
-                          ? 'bg-[var(--text-secondary)] border-[var(--text-secondary)] text-[var(--border-strong)]'
-                          : 'bg-[var(--bg)] border-[var(--border)] text-[var(--text-muted)]'
-                      }`}>
-                        {s.name && <span className="font-semibold">{s.name}</span>}
-                        <span className="opacity-80">{s.file_path}:{s.start_line}</span>
-                      </span>
-                    ))}
+        {messages.map((m, i) => {
+          const isStreaming = loading && m.role === 'ai' && i === messages.length - 1 && !m.text
+          return (
+            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[85%] rounded-lg px-3.5 py-2.5 text-[13px] leading-relaxed shadow-xs border ${
+                m.role === 'user'
+                  ? 'bg-[var(--text)] text-[var(--accent-text)] border-[var(--text)]'
+                  : 'bg-[var(--bg-card)] text-[var(--text)] border-[var(--border)]'
+              }`}>
+                {m.text ? (
+                  <p className="whitespace-pre-wrap font-sans">{m.text}</p>
+                ) : isStreaming ? (
+                  <div className="flex gap-1 items-center h-4">
+                    <div className="w-1.5 h-1.5 bg-[var(--text-faint)] rounded-full animate-bounce" />
+                    <div className="w-1.5 h-1.5 bg-[var(--text-faint)] rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+                    <div className="w-1.5 h-1.5 bg-[var(--text-faint)] rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
                   </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
+                ) : null}
 
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg px-3.5 py-2.5 shadow-xs">
-              <div className="flex gap-1 items-center h-4">
-                <div className="w-1.5 h-1.5 bg-[var(--text-faint)] rounded-full animate-bounce" />
-                <div className="w-1.5 h-1.5 bg-[var(--text-faint)] rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
-                <div className="w-1.5 h-1.5 bg-[var(--text-faint)] rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+                {m.sources && m.sources.length > 0 && (
+                  <div className={`mt-2.5 pt-2 border-t ${m.role === 'user' ? 'border-[var(--text-secondary)]' : 'border-[var(--border)]'}`}>
+                    <p className={`text-[9px] font-semibold uppercase tracking-wider mb-1.5 ${m.role === 'user' ? 'text-[var(--text-faint)]' : 'text-[var(--text-muted)]'}`}>
+                      Sources
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {m.sources.map((s: any, j: number) => (
+                        <span key={j} className={`text-[10px] font-mono px-1.5 py-0.5 rounded border flex gap-1 ${
+                          m.role === 'user'
+                            ? 'bg-[var(--text-secondary)] border-[var(--text-secondary)] text-[var(--border-strong)]'
+                            : 'bg-[var(--bg)] border-[var(--border)] text-[var(--text-muted)]'
+                        }`}>
+                          {s.name && <span className="font-semibold">{s.name}</span>}
+                          <span className="opacity-80">{s.file_path}:{s.start_line}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        )}
+          )
+        })}
       </div>
 
       <div className="p-4 border-t border-[var(--border)] bg-[var(--bg)] shrink-0">
-        <form 
-          className="relative flex items-center" 
+        <form
+          className="relative flex items-center"
           onSubmit={(e) => { e.preventDefault(); send() }}
         >
           <input

@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import mermaid from 'mermaid'
-import { getDiagram, getReport, getReadme, generateReadme } from '../lib/api'
+import { getDiagram, getReport, getReadme, streamGenerateReadme } from '../lib/api'
+import { CytoscapeGraph } from './CytoscapeGraph'
 
 interface Props { jobId: string }
 
@@ -18,233 +18,6 @@ interface DiagramData {
 }
 
 type Tab = 'graph' | 'readme' | 'info'
-
-function initMermaid(theme: 'light' | 'dark') {
-  mermaid.initialize({
-    startOnLoad: false,
-    theme: 'base',
-    themeVariables: {
-      primaryColor: theme === 'dark' ? '#1c1c1c' : '#f5f5f5',
-      primaryTextColor: theme === 'dark' ? '#e5e5e5' : '#171717',
-      primaryBorderColor: theme === 'dark' ? '#333333' : '#d4d4d4',
-      lineColor: theme === 'dark' ? '#525252' : '#a3a3a3',
-      secondaryColor: theme === 'dark' ? '#141414' : '#fafafa',
-      tertiaryColor: theme === 'dark' ? '#262626' : '#eaeaea',
-      fontSize: '18px',
-      fontFamily: '"JetBrains Mono", ui-monospace, monospace',
-    },
-    flowchart: {
-      htmlLabels: true,
-      curve: 'basis',
-      padding: 24,
-      nodeSpacing: 50,
-      rankSpacing: 60,
-      rankDirection: 'LR',
-      useMaxWidth: false,
-      defaultRenderer: 'dagre',
-    },
-    theme: 'base',
-  })
-}
-
-/* ── Mermaid Diagram Renderer ────────────────────── */
-
-function MermaidDiagram({ source }: { source: string }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const resizeRef = useRef<HTMLDivElement>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [showRight, setShowRight] = useState(false)
-  const [showLeft, setShowLeft] = useState(false)
-  const [zoom, setZoom] = useState(1)
-  const [height, setHeight] = useState(180)
-
-  useEffect(() => {
-    if (!source || !containerRef.current) return
-    const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`
-    let cancelled = false
-
-    const theme = (document.documentElement.getAttribute('data-theme') || 'light') as 'light' | 'dark'
-    initMermaid(theme)
-
-    // Force horizontal layout: always use flowchart LR with dagre renderer
-    const dagreDirective = "%%{init: {'flowchart': {'defaultRenderer': 'dagre', 'rankDirection': 'LR'}}}%%"
-    const forcedSource = source
-      .replace(/^%%\{.*?%%\n?/m, '')
-      .replace(/^graph\s+(LR|TD|TB|BT|RL)/m, 'flowchart LR')
-      .replace(/^flowchart\s+(TD|TB|BT|RL)/m, 'flowchart LR')
-    const finalSource = `${dagreDirective}\n${forcedSource}`
-
-    mermaid.render(id, finalSource).then(
-      ({ svg }) => {
-        if (!cancelled && containerRef.current) {
-          containerRef.current.innerHTML = svg
-          requestAnimationFrame(() => {
-            if (scrollRef.current) checkOverflow()
-          })
-        }
-      },
-      (err) => {
-        if (!cancelled) setError(String(err))
-      }
-    )
-
-    return () => { cancelled = true }
-  }, [source])
-
-  const checkOverflow = useCallback(() => {
-    const el = scrollRef.current
-    if (!el) return
-    setShowRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
-    setShowLeft(el.scrollLeft > 4)
-  }, [])
-
-  const scroll = useCallback((direction: 'left' | 'right') => {
-    const el = scrollRef.current
-    if (!el) return
-    const amount = el.clientWidth * 0.6
-    el.scrollBy({ left: direction === 'right' ? amount : -amount, behavior: 'smooth' })
-  }, [])
-
-  const zoomIn = useCallback(() => setZoom(z => Math.min(z + 0.25, 4)), [])
-  const zoomOut = useCallback(() => setZoom(z => Math.max(z - 0.25, 0.25)), [])
-  const resetZoom = useCallback(() => setZoom(1), [])
-
-  // Resize handle drag
-  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const startY = e.clientY
-    const startH = height
-    const onMove = (ev: MouseEvent) => {
-      const delta = ev.clientY - startY
-      setHeight(Math.max(120, Math.min(startH + delta, 800)))
-    }
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-    document.body.style.cursor = 'se-resize'
-    document.body.style.userSelect = 'none'
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }, [height])
-
-  // Scroll wheel zoom
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      setZoom(z => {
-        const delta = e.deltaY > 0 ? -0.15 : 0.15
-        return Math.min(Math.max(z + delta, 0.25), 4)
-      })
-    }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
-  }, [])
-
-  // Click-drag pan
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    let isDown = false
-    let startX = 0
-    let startY = 0
-    let scrollX = 0
-    let scrollY = 0
-
-    const onMouseDown = (e: MouseEvent) => {
-      isDown = true
-      startX = e.pageX - el.offsetLeft
-      startY = e.pageY - el.offsetTop
-      scrollX = el.scrollLeft
-      scrollY = el.scrollTop
-      el.style.cursor = 'grabbing'
-    }
-    const onMouseUp = () => {
-      isDown = false
-      el.style.cursor = 'grab'
-    }
-    const onMouseLeave = () => {
-      isDown = false
-      el.style.cursor = 'grab'
-    }
-    const onMouseMove = (e: MouseEvent) => {
-      if (!isDown) return
-      e.preventDefault()
-      const x = e.pageX - el.offsetLeft
-      const y = e.pageY - el.offsetTop
-      el.scrollLeft = scrollX - (x - startX)
-      el.scrollTop = scrollY - (y - startY)
-    }
-
-    el.style.cursor = 'grab'
-    el.addEventListener('mousedown', onMouseDown)
-    el.addEventListener('mouseup', onMouseUp)
-    el.addEventListener('mouseleave', onMouseLeave)
-    el.addEventListener('mousemove', onMouseMove)
-    return () => {
-      el.removeEventListener('mousedown', onMouseDown)
-      el.removeEventListener('mouseup', onMouseUp)
-      el.removeEventListener('mouseleave', onMouseLeave)
-      el.removeEventListener('mousemove', onMouseMove)
-    }
-  }, [])
-
-  if (error) return null
-
-  return (
-    <div className="relative group/diagram">
-      <div
-        ref={scrollRef}
-        onScroll={checkOverflow}
-        className="bg-[var(--bg-subtle)] border border-[var(--border)] rounded-lg overflow-auto"
-        style={{ height }}
-      >
-        <div
-          ref={containerRef}
-          className="mermaid-wrap flex justify-start px-6 py-4"
-          style={{ minWidth: 'max-content', transform: `scale(${zoom})`, transformOrigin: 'top left', transition: 'transform 0.15s ease' }}
-        />
-      </div>
-
-      {/* Scroll arrows */}
-      {showLeft && (
-        <button
-          onClick={() => scroll('left')}
-          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[var(--bg-card)] border border-[var(--border)] shadow-md flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--border-strong)] transition-all opacity-0 group-hover/diagram:opacity-100 z-10"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8.5 3L4.5 7L8.5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
-      )}
-      {showRight && (
-        <button
-          onClick={() => scroll('right')}
-          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[var(--bg-card)] border border-[var(--border)] shadow-md flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--border-strong)] transition-all opacity-0 group-hover/diagram:opacity-100 z-10"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5.5 3L9.5 7L5.5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
-      )}
-
-      {/* Bottom resize handle */}
-      <div
-        ref={resizeRef}
-        onMouseDown={handleResizeMouseDown}
-        className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize flex items-end justify-end pb-1 pr-1 z-10"
-        title="Redimensionner"
-      >
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-[var(--text-faint)] opacity-60 group-hover/diagram:opacity-100 transition-opacity">
-          <path d="M9 1v8H1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          <path d="M6 4l3 3M4 6l5 5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-        </svg>
-      </div>
-    </div>
-  )
-}
 
 /* ── Tooltip ───────────────────────────────────── */
 
@@ -267,22 +40,17 @@ function InsightCard({
   label,
   tooltip,
   items,
-  variant = 'default',
 }: {
   icon: React.ReactNode
   label: string
   tooltip: string
   items: string[]
-  variant?: 'default' | 'warning'
 }) {
   if (items.length === 0) return null
-  const colors = variant === 'warning'
-    ? 'border-orange-200 bg-orange-50/30'
-    : 'border-[var(--border)] bg-[var(--bg-card)]'
   return (
-    <div className={`rounded-lg border p-4 ${colors}`}>
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
       <div className="flex items-center gap-2 mb-3">
-        <span className={variant === 'warning' ? 'text-orange-500' : 'text-[var(--text-muted)]'}>{icon}</span>
+        <span className="text-[var(--text-muted)]">{icon}</span>
         <Tooltip text={tooltip}>
           <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] cursor-help underline decoration-dotted decoration-[var(--border-strong)] underline-offset-4">{label}</span>
         </Tooltip>
@@ -294,11 +62,7 @@ function InsightCard({
         {items.map((item) => (
           <span
             key={item}
-            className={`text-[11px] font-mono px-2 py-1 rounded-md border truncate max-w-full ${
-              variant === 'warning'
-                ? 'bg-[var(--bg-card)] text-orange-700 border-orange-200'
-                : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border)]'
-            }`}
+            className="text-[11px] font-mono px-2 py-1 rounded-md bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] truncate max-w-full"
             title={item}
           >
             {item}
@@ -396,6 +160,7 @@ export function ArchitectureReport({ jobId }: Props) {
   const [readmeSource, setReadmeSource] = useState<string | null>(null)
   const [readmeLoading, setReadmeLoading] = useState(false)
   const [readmeFetched, setReadmeFetched] = useState(false)
+  const [readmeLang, setReadmeLang] = useState('en')
 
   useEffect(() => {
     getDiagram(jobId).then(setDiagram).catch(() => {})
@@ -419,16 +184,25 @@ export function ArchitectureReport({ jobId }: Props) {
 
   const handleGenerate = useCallback(async () => {
     setReadmeLoading(true)
+    setReadme('')
+    setReadmeSource(null)
     try {
-      const data = await generateReadme(jobId)
-      setReadme(data.content)
-      setReadmeSource(data.source)
-    } catch (err) {
-      console.error('README generation failed:', err)
-    } finally {
+      await streamGenerateReadme(jobId, {
+        onToken: (token) => {
+          setReadme(prev => prev + token)
+        },
+        onDone: (source) => {
+          setReadmeSource(source)
+          setReadmeLoading(false)
+        },
+        onError: () => {
+          setReadmeLoading(false)
+        },
+      }, { language: readmeLang })
+    } catch {
       setReadmeLoading(false)
     }
-  }, [jobId])
+  }, [jobId, readmeLang])
 
   useEffect(() => {
     if (tab === 'readme' && !readmeFetched) fetchReadme()
@@ -497,7 +271,16 @@ export function ArchitectureReport({ jobId }: Props) {
           <div className="space-y-5">
             {diagram ? (
               <>
-                {diagram.diagram && <MermaidDiagram source={diagram.diagram} />}
+                {diagram.dependency_graph && Object.keys(diagram.dependency_graph).length > 0 && (
+                  <CytoscapeGraph
+                    dependencyGraph={diagram.dependency_graph}
+                    entryPoints={diagram.entry_points}
+                    coreModules={diagram.core_modules}
+                    orphanModules={diagram.orphan_modules}
+                    dependencyCycles={diagram.dependency_cycles}
+                    moduleDescriptions={report?.architecture_report?.module_descriptions}
+                  />
+                )}
 
                 {/* Insight Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -553,33 +336,32 @@ export function ArchitectureReport({ jobId }: Props) {
                     label="Modules orphelins"
                     tooltip="Les modules orphelins ne sont importés par aucun autre fichier du projet. Ils pourraient être du code mort, des utilitaires non utilisés, ou des fichiers en attente d'intégration."
                     items={diagram.orphan_modules}
-                    variant="warning"
                   />
                 </div>
 
                 {/* Cycles warning */}
                 {diagram.dependency_cycles?.length > 0 && (
-                  <div className="rounded-lg border border-red-200 bg-red-50/40 p-4">
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
                     <div className="flex items-center gap-2 mb-3">
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-red-500">
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-[var(--text-muted)]">
                         <path d="M8 1a7 7 0 100 14A7 7 0 008 1z" stroke="currentColor" strokeWidth="1.5"/>
                         <path d="M8 5v3l2 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                       </svg>
                       <Tooltip text="Un cycle de dépendance signifie que le module A dépend de B qui dépend de A (directement ou indirectement). Cela rend le code difficile à comprendre et peut causer des bugs.">
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-red-600 cursor-help underline decoration-dotted decoration-red-200 underline-offset-4">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] cursor-help underline decoration-dotted decoration-[var(--border-strong)] underline-offset-4">
                           Cycles de dépendances
                         </span>
                       </Tooltip>
-                      <span className="text-[10px] tabular-nums text-red-500 bg-red-100 px-1.5 py-0.5 rounded-full font-medium">
+                      <span className="text-[10px] tabular-nums text-[var(--text-faint)] bg-[var(--bg-subtle)] px-1.5 py-0.5 rounded-full font-medium">
                         {diagram.dependency_cycles.length}
                       </span>
                     </div>
                     <div className="space-y-1.5">
                       {diagram.dependency_cycles.slice(0, 5).map((c, i) => (
-                        <div key={i} className="text-[11px] font-mono text-red-700 bg-[var(--bg-card)] px-2.5 py-1.5 rounded-md border border-red-200 flex items-center gap-2">
+                        <div key={i} className="text-[11px] font-mono text-[var(--text-secondary)] bg-[var(--bg-subtle)] px-2.5 py-1.5 rounded-md border border-[var(--border)] flex items-center gap-2">
                           {c.map((node, j) => (
                             <span key={j} className="flex items-center gap-2">
-                              {j > 0 && <span className="text-red-300">&rarr;</span>}
+                              {j > 0 && <span className="text-[var(--text-faint)]">&rarr;</span>}
                               <span className="truncate">{node}</span>
                             </span>
                           ))}
@@ -600,7 +382,54 @@ export function ArchitectureReport({ jobId }: Props) {
         {/* ── README Tab ── */}
         {tab === 'readme' && (
           <div>
-            {readmeLoading && (
+            {/* Language selector + regenerate */}
+            {readmeFetched && !readmeLoading && readme === null && (
+              <div className="flex items-center gap-3 mb-4">
+                <select
+                  value={readmeLang}
+                  onChange={e => setReadmeLang(e.target.value)}
+                  className="text-[12px] font-medium text-[var(--text-secondary)] bg-[var(--bg-subtle)] border border-[var(--border)] rounded-md px-2.5 py-1.5 focus:outline-none focus:border-[var(--text-faint)] transition-colors cursor-pointer appearance-none pr-7"
+                  style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'10\' height=\'6\' viewBox=\'0 0 10 6\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l4 4 4-4\' stroke=\'%23737373\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}
+                >
+                  <option value="en">English</option>
+                  <option value="fr">Français</option>
+                  <option value="es">Español</option>
+                  <option value="de">Deutsch</option>
+                  <option value="pt">Português</option>
+                  <option value="it">Italiano</option>
+                  <option value="ja">日本語</option>
+                  <option value="zh">中文</option>
+                </select>
+              </div>
+            )}
+
+            {readme !== null && readme !== '' && !readmeLoading && (
+              <div className="flex items-center gap-3 mb-4">
+                <select
+                  value={readmeLang}
+                  onChange={e => setReadmeLang(e.target.value)}
+                  className="text-[12px] font-medium text-[var(--text-secondary)] bg-[var(--bg-subtle)] border border-[var(--border)] rounded-md px-2.5 py-1.5 focus:outline-none focus:border-[var(--text-faint)] transition-colors cursor-pointer appearance-none pr-7"
+                  style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'10\' height=\'6\' viewBox=\'0 0 10 6\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M1 1l4 4 4-4\' stroke=\'%23737373\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}
+                >
+                  <option value="en">English</option>
+                  <option value="fr">Français</option>
+                  <option value="es">Español</option>
+                  <option value="de">Deutsch</option>
+                  <option value="pt">Português</option>
+                  <option value="it">Italiano</option>
+                  <option value="ja">日本語</option>
+                  <option value="zh">中文</option>
+                </select>
+                <button
+                  onClick={handleGenerate}
+                  className="text-[12px] font-medium text-[var(--text-muted)] bg-[var(--bg-subtle)] border border-[var(--border)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)] px-3 py-1.5 rounded-md transition-colors"
+                >
+                  Régénérer
+                </button>
+              </div>
+            )}
+
+            {readmeLoading && readme === '' && (
               <div className="flex flex-col items-center justify-center h-[400px] gap-3">
                 <span className="w-5 h-5 border-2 border-[var(--border)] border-t-[var(--accent)] rounded-full animate-spin" />
                 <span className="text-[13px] text-[var(--text-faint)]">
@@ -608,8 +437,23 @@ export function ArchitectureReport({ jobId }: Props) {
                 </span>
               </div>
             )}
-            {!readmeLoading && readme && (
+            {readme !== null && readme !== '' && (
               <div className="readme-container">
+                {readmeLoading && (
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-pulse" />
+                    <span className="text-[12px] text-sky-500 font-medium">Génération en cours...</span>
+                  </div>
+                )}
+                {!readmeLoading && readmeSource === 'generated' && (
+                  <div className="flex items-center gap-2 mb-4">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-emerald-500">
+                      <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.5"/>
+                      <path d="M4 6l1.5 1.5L8 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span className="text-[12px] text-emerald-600 font-medium">Généré avec succès</span>
+                  </div>
+                )}
                 {readmeSource && (
                   <div className="mb-5">
                     <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-md border ${
@@ -627,7 +471,7 @@ export function ArchitectureReport({ jobId }: Props) {
                 <ReadmeRenderer content={readme} />
               </div>
             )}
-            {!readmeLoading && !readme && readmeFetched && (
+            {!readmeLoading && readme === null && readmeFetched && (
               <div className="flex flex-col items-center justify-center h-[400px] gap-4">
                 <div className="w-12 h-12 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border)] flex items-center justify-center mb-1">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-[var(--text-faint)]">
@@ -696,13 +540,13 @@ export function ArchitectureReport({ jobId }: Props) {
             </div>
 
             {diagram.dependency_cycles?.length > 0 && (
-              <div className="p-3 bg-[var(--bg-card)] border border-red-200 rounded-md">
-                <h3 className="text-[13px] font-semibold text-red-600 mb-2">
+              <div className="p-3 bg-[var(--bg-card)] border border-[var(--border)] rounded-md">
+                <h3 className="text-[13px] font-semibold text-[var(--text)] mb-2">
                   Cycles de dépendances ({diagram.dependency_cycles.length})
                 </h3>
                 <div className="space-y-1.5">
                   {diagram.dependency_cycles.slice(0, 5).map((c: string[], i: number) => (
-                    <div key={i} className="text-[11px] font-mono text-red-600 bg-red-50 px-2 py-1 rounded border border-red-100 truncate">
+                    <div key={i} className="text-[11px] font-mono text-[var(--text-secondary)] bg-[var(--bg-subtle)] px-2 py-1 rounded border border-[var(--border)] truncate">
                       {c.join(' \u2194 ')}
                     </div>
                   ))}

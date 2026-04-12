@@ -89,11 +89,22 @@ h1, h2, h3, h4, h5, h6 {
   animation: checkmark 0.4s ease-out 0.1s forwards;
 }
 
-/* ── Mermaid ──────────────────────────────────── */
-.mermaid-wrap svg {
-  height: auto;
-  min-width: fit-content;
-  width: max-content;
+/* ── Cytoscape Graph ──────────────────────────── */
+.cy-graph-container canvas {
+  outline: none !important;
+}
+
+/* ── Streaming Cursor ─────────────────────────── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.streaming-cursor::after {
+  content: '▍';
+  animation: blink 1s step-end infinite;
+  color: var(--text-muted);
+  font-weight: 400;
 }
 
 /* ── README Document Styles ───────────────────── */

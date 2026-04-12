@@ -7,11 +7,13 @@ viewing architecture diagrams, and Q&A.
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel, HttpUrl
+from starlette.responses import StreamingResponse
 
 from graph.orchestrator import build_pipeline, create_initial_state
 from graph.state import PipelineStatus
@@ -188,7 +190,67 @@ async def chat(job_id: str, request: ChatRequest):
     )
 
 
+@router.post("/chat/{job_id}/stream")
+async def chat_stream(job_id: str, request: ChatRequest):
+    """Stream Q&A response using Server-Sent Events."""
+    if job_id not in _jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    state = _jobs[job_id]["state"]
+    status = state.get("status")
+
+    if status not in (PipelineStatus.COMPLETED, PipelineStatus.QA_READY, "completed", "qa_ready"):
+        raise HTTPException(
+            status_code=400, detail="Analysis not completed yet. Wait for the pipeline to finish."
+        )
+
+    if not request.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty")
+
+    from core.rag import ask_question_stream
+
+    question = request.question.strip()
+    full_answer: list[str] = []
+    all_sources: list[dict] = []
+
+    def event_generator():
+        for event in ask_question_stream(state, question):
+            if event["type"] == "token":
+                full_answer.append(event["content"])
+            elif event["type"] == "sources":
+                all_sources.extend(event.get("sources", []))
+            yield f"data: {json.dumps(event)}\n\n"
+
+        # Persist to qa_history after stream completes
+        from graph.state import QAMessage
+
+        qa_message = QAMessage(
+            question=question,
+            answer="".join(full_answer),
+            sources=tuple(all_sources),
+            timestamp=datetime.now(timezone.utc).timestamp(),
+        )
+        existing_history = state.get("qa_history", [])
+        state["qa_history"] = list(existing_history) + [qa_message]
+
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 # --- README endpoints ---
+
+
+class ReadmeGenerateRequest(BaseModel):
+    language: str = "en"
 
 
 class ReadmeResponse(BaseModel):
@@ -216,19 +278,96 @@ async def get_readme(job_id: str):
 
 
 @router.post("/readme/{job_id}/generate", response_model=ReadmeResponse)
-async def generate_readme(job_id: str):
+async def generate_readme(job_id: str, request: ReadmeGenerateRequest = ReadmeGenerateRequest()):
     """Generate a README for an analyzed repo using the LLM."""
     if job_id not in _jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
     state = _jobs[job_id]["state"]
+
+    prompt = _build_readme_prompt(state, language=request.language)
+    content = _call_readme_llm(prompt)
+
+    state["generated_readme"] = content
+    return ReadmeResponse(content=content, source="generated")
+
+
+@router.post("/readme/{job_id}/generate/stream")
+async def generate_readme_stream(job_id: str, request: ReadmeGenerateRequest = ReadmeGenerateRequest()):
+    """Stream README generation using Server-Sent Events."""
+    if job_id not in _jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    state = _jobs[job_id]["state"]
+    if state.get("repo_manifest") is None:
+        raise HTTPException(status_code=400, detail="Analysis not completed yet")
+
+    import os
+    from openai import OpenAI
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="No OPENAI_API_KEY configured")
+
+    prompt = _build_readme_prompt(state, language=request.language)
+    client = OpenAI(api_key=api_key)
+
+    def event_generator():
+        full_content: list[str] = []
+        try:
+            stream = client.chat.completions.create(
+                model="gpt-4o-mini",
+                max_tokens=2048,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a technical writer. Generate clear, concise README files "
+                            "for software projects. Write in Markdown. Be factual — only include "
+                            "information that can be inferred from the project data provided."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                stream=True,
+            )
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    token = chunk.choices[0].delta.content
+                    full_content.append(token)
+                    yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            return
+
+        state["generated_readme"] = "".join(full_content)
+        yield f"data: {json.dumps({'type': 'done', 'source': 'generated'})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+def _build_readme_prompt(state: dict, language: str = "en") -> str:
+    """Build the LLM prompt for README generation."""
+
+    language_names = {
+        "en": "English", "fr": "French", "es": "Spanish",
+        "de": "German", "pt": "Portuguese", "it": "Italian",
+        "ja": "Japanese", "zh": "Chinese", "ko": "Korean",
+    }
+    lang_instruction = f"Write the README entirely in {language_names.get(language, language)}."
+    if language != "en":
+        lang_instruction += " Do NOT mix languages — all headings, descriptions, comments, and UI text must be in that language."
     manifest = state.get("repo_manifest")
     arch = state.get("architecture_report")
 
-    if manifest is None:
-        raise HTTPException(status_code=400, detail="Analysis not completed yet")
-
-    # Build context for the LLM
     lang_summary = ", ".join(f"{l.name} ({l.total_lines} LOC)" for l in manifest.languages)
     contributors_summary = ", ".join(c.name for c in manifest.contributors[:5])
     arch_pattern = arch.detected_pattern if arch else "unknown"
@@ -240,7 +379,7 @@ async def generate_readme(job_id: str):
     if tech_debt:
         debt_summary = f"Overall tech debt score: {tech_debt.overall_score}/100"
 
-    prompt = f"""Generate a clear, professional README.md for this project.
+    return f"""Generate a clear, professional README.md for this project.
 
 Project: {manifest.repo_name}
 Repository: {manifest.repo_url}
@@ -258,7 +397,8 @@ Directory structure:
 {_dict_to_tree(manifest.directory_tree)}
 ```
 
-Write the README in Markdown format. Include:
+Write the README in Markdown format. {lang_instruction}
+Include:
 - A concise project description
 - Key features
 - Project structure overview
@@ -266,6 +406,9 @@ Write the README in Markdown format. Include:
 - Tech stack / languages used
 Keep it factual and based only on the information provided above. Do NOT invent features or details that aren't supported by the data."""
 
+
+def _call_readme_llm(prompt: str) -> str:
+    """Call the LLM to generate a README (non-streaming)."""
     import os
     from openai import OpenAI
 
@@ -291,12 +434,9 @@ Keep it factual and based only on the information provided above. Do NOT invent 
                 {"role": "user", "content": prompt},
             ],
         )
-        content = response.choices[0].message.content if response.choices else ""
+        return response.choices[0].message.content if response.choices else ""
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM generation failed: {e}")
-
-    state["generated_readme"] = content
-    return ReadmeResponse(content=content, source="generated")
 
 
 def _dict_to_tree(d: dict, prefix: str = "") -> str:

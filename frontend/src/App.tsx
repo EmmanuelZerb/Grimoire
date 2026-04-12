@@ -14,20 +14,7 @@ export default function App() {
       <nav className="sticky top-0 z-40 bg-[var(--bg-card)]/80 backdrop-blur-md border-b border-[var(--border)]">
         <div className="max-w-[1040px] mx-auto px-6 h-14 flex items-center justify-between">
           <button onClick={phase !== 'idle' ? reset : undefined} className="flex items-center gap-2.5">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ transform: 'rotate(-25deg)' }}>
-              {/* Book body */}
-              <rect x="3" y="4" width="16" height="18" rx="2" fill="#171717"/>
-              {/* Spine shadow */}
-              <rect x="3" y="4" width="2.5" height="18" rx="1" fill="#000" opacity=".2"/>
-              {/* Pages edge */}
-              <rect x="4.5" y="5.5" width="13.5" height="15" rx="1" fill="#fff" opacity=".06"/>
-              {/* Star/rune symbol */}
-              <circle cx="11" cy="11" r="2.5" stroke="#fff" strokeWidth=".8" fill="none" opacity=".5"/>
-              <circle cx="11" cy="11" r=".7" fill="#fff" opacity=".5"/>
-              {/* Decorative lines below */}
-              <line x1="7" y1="15.5" x2="15" y2="15.5" stroke="#fff" strokeWidth=".6" strokeLinecap="round" opacity=".2"/>
-              <line x1="8" y1="17.5" x2="14" y2="17.5" stroke="#fff" strokeWidth=".6" strokeLinecap="round" opacity=".12"/>
-            </svg>
+            <img src="/grimoire.svg" alt="" width="20" height="24" className="text-[var(--text)]" />
             <span className="text-[14px] font-semibold tracking-tight text-[var(--text)]">
               Grimoire
             </span>
@@ -67,14 +54,9 @@ export default function App() {
 
         {phase === 'completed' && jobId && (
           <div className="fade-in space-y-6">
-            <div className="mb-8">
-              <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)] mb-1">Rapport d'analyse</h1>
-              <p className="text-[14px] text-[var(--text-muted)]">Vue d'ensemble, architecture et métriques de qualité de code pour {repoName}.</p>
-            </div>
-
             <ArchitectureReport jobId={jobId} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
               <TechDebtReport jobId={jobId} />
               <ChatInterface jobId={jobId} />
             </div>

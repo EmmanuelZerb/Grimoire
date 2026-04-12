@@ -3,124 +3,128 @@ import { getReport } from '../lib/api'
 
 interface Props { jobId: string }
 
-function getScoreTheme(score: number) {
-  if (score >= 75) return { color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', bar: 'bg-red-500', label: 'Critique' }
-  if (score >= 50) return { color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', bar: 'bg-orange-500', label: 'Élevée' }
-  if (score >= 25) return { color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', bar: 'bg-blue-500', label: 'Modérée' }
-  return { color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200', bar: 'bg-green-500', label: 'Faible' }
+function getSeverityLabel(score: number) {
+  if (score >= 75) return 'Critique'
+  if (score >= 50) return 'Élevée'
+  if (score >= 25) return 'Modérée'
+  return 'Faible'
+}
+
+function getBarOpacity(score: number) {
+  if (score >= 75) return 1
+  if (score >= 50) return 0.75
+  if (score >= 25) return 0.5
+  return 0.3
 }
 
 export function TechDebtReport({ jobId }: Props) {
-  const [report, setReport] = useState<any>(null)
+  const [report, setReport] = useState<Record<string, unknown> | null>(null)
 
   useEffect(() => {
     getReport(jobId).then(d => setReport(d.tech_debt)).catch(() => {})
   }, [jobId])
 
   if (!report) return (
-    <div className="bg-[var(--bg-card)] rounded-lg border border-[var(--border)] p-6 shadow-sm flex items-center justify-center min-h-[300px] text-[var(--text-faint)] text-[13px]">
+    <div className="bg-[var(--bg-card)] rounded-lg border border-[var(--border)] p-6 shadow-sm flex items-center justify-center h-full min-h-[300px] text-[var(--text-faint)] text-[13px]">
       Évaluation de la dette technique...
     </div>
   )
 
-  const theme = getScoreTheme(report.overall_score)
+  const overallScore = report.overall_score as number
+  const categories = (report.categories as Array<{ name: string; score: number }>) ?? []
+  const todosCount = ((report.todos_fixmes as unknown[]) ?? []).length
+  const depsCount = ((report.outdated_dependencies as unknown[]) ?? []).length
 
   return (
-    <section className="bg-[var(--bg-card)] rounded-lg border border-[var(--border)] p-6 shadow-sm fade-in h-full flex flex-col">
+    <section className="bg-[var(--bg-card)] rounded-lg border border-[var(--border)] p-6 shadow-sm fade-in flex flex-col">
+      {/* Header */}
       <div className="mb-5">
         <h2 className="text-[16px] font-semibold text-[var(--text)] mb-0.5 tracking-tight">Dette Technique</h2>
         <p className="text-[13px] text-[var(--text-muted)]">Qualité du code et maintenabilité</p>
       </div>
 
-      {/* Score Box */}
-      <div className={`flex items-center gap-4 p-4 rounded-md border ${theme.bg} ${theme.border} mb-6`}>
-        <div className="flex flex-col items-center shrink-0">
-          <div className={`text-[32px] font-semibold tabular-nums tracking-tight ${theme.color} leading-none`}>
-            {Math.round(report.overall_score)}
-          </div>
+      {/* Score */}
+      <div className="flex items-center gap-4 p-4 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] mb-5">
+        <div className="text-[36px] font-semibold tabular-nums tracking-tight text-[var(--text)] leading-none">
+          {Math.round(overallScore)}
         </div>
         <div>
-          <div className={`text-[11px] font-semibold uppercase tracking-wider mb-0.5 ${theme.color}`}>
-            Dette {theme.label}
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            {getSeverityLabel(overallScore)}
           </div>
-          <p className="text-[13px] text-[var(--text-secondary)]">
-            {report.overall_score < 25
-              ? 'Base de code saine. L\'architecture est bien maintenue.'
-              : report.overall_score < 50
-              ? 'La dette s\'accumule. Prévoyez des refactorisations mineures.'
-              : report.overall_score < 75
-              ? 'Dette technique importante. Un sprint de nettoyage est recommandé.'
-              : 'Niveau critique. Refonte majeure requise avant de nouvelles fonctionnalités.'}
+          <p className="text-[12px] text-[var(--text-secondary)] mt-0.5 leading-relaxed">
+            {overallScore < 25
+              ? 'Base de code saine.'
+              : overallScore < 50
+              ? 'Dette modérée, refactorisations ponctuelles recommandées.'
+              : overallScore < 75
+              ? 'Dette importante, un sprint de nettoyage est recommandé.'
+              : 'Niveau critique. Refonte majeure requise.'}
           </p>
         </div>
       </div>
 
       {/* Categories */}
-      {report.categories?.length > 0 && (
-        <div className="mb-6">
-          <div className="space-y-3">
-            {report.categories.map((cat: any) => {
-              const catTheme = getScoreTheme(cat.score)
-              return (
-                <div key={cat.name}>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-[12px] font-medium text-[var(--text-secondary)]">{cat.name}</span>
-                    <span className="text-[12px] font-semibold text-[var(--text)] tabular-nums">{Math.round(cat.score)}</span>
-                  </div>
-                  <div className="h-1 w-full bg-[var(--bg-subtle)] rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-700 ${catTheme.bar}`}
-                      style={{ width: `${cat.score}%` }}
-                    />
-                  </div>
+      {categories.length > 0 && (
+        <div className="mb-5">
+          <div className="space-y-2.5">
+            {categories.map((cat) => (
+              <div key={cat.name} className="flex items-center gap-3">
+                <span className="text-[12px] text-[var(--text-secondary)] w-28 shrink-0 truncate" title={cat.name}>{cat.name}</span>
+                <div className="flex-1 h-1.5 bg-[var(--bg-subtle)] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[var(--text-muted)] transition-all duration-700"
+                    style={{ width: `${cat.score}%`, opacity: getBarOpacity(cat.score) }}
+                  />
                 </div>
-              )
-            })}
+                <span className="text-[12px] font-semibold tabular-nums w-8 text-right shrink-0 text-[var(--text)]">
+                  {Math.round(cat.score)}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Lists */}
-      <div className="space-y-4 mt-auto">
-        {report.todos_fixmes?.length > 0 && (
-          <div>
-            <h3 className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">TODOs & FIXMEs ({report.todos_fixmes.length})</h3>
-            <div className="space-y-2 max-h-[150px] overflow-y-auto">
-              {report.todos_fixmes.slice(0, 10).map((t: any, i: number) => (
-                <div key={i} className="flex items-start gap-2">
-                  <span className={`text-[9px] font-mono font-semibold px-1 py-0.5 rounded-[3px] shrink-0 mt-[3px] ${
-                    t.type === 'FIXME' ? 'bg-red-50 text-red-600 border border-red-100' : 
-                    t.type === 'HACK' ? 'bg-orange-50 text-orange-600 border border-orange-100' : 
-                    'bg-[var(--bg-subtle)] text-[var(--text-faint)] border border-[var(--border)]'
-                  }`}>
-                    {t.type}
-                  </span>
-                  <p className="text-[13px] text-[var(--text-faint)] leading-snug truncate" title={t.text}>{t.text}</p>
-                </div>
-              ))}
+      {/* Quick counts */}
+      <div className="mt-auto flex items-center gap-4 pt-4 border-t border-[var(--border)]">
+        {todosCount > 0 && (
+          <Tooltip text={`${todosCount} marqueurs TODO, FIXME et HACK trouvés dans le code source.`}>
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" className="text-[var(--text-faint)]">
+                <path d="M8 1v2M8 5v2M8 9v2M8 13v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <span className="font-medium">{todosCount}</span>
+              <span className="text-[var(--text-faint)]">TODOs</span>
             </div>
-          </div>
+          </Tooltip>
         )}
-
-        {report.outdated_dependencies?.length > 0 && (
-          <div>
-            <h3 className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2 border-t border-[var(--border)] pt-4">Dépendances Obsolètes ({report.outdated_dependencies.length})</h3>
-            <div className="space-y-1 max-h-[150px] overflow-y-auto">
-              {report.outdated_dependencies.slice(0, 10).map((d: any, i: number) => (
-                <div key={i} className="flex justify-between items-center text-[13px]">
-                  <div className="flex items-baseline gap-2 overflow-hidden">
-                    <span className="font-mono font-medium text-[var(--text)] truncate">{d.package}</span>
-                    <span className="text-[11px] text-[var(--text-faint)] font-mono truncate">{d.file?.split('/').pop()}</span>
-                  </div>
-                  <span className="font-mono text-[11px] text-[var(--text-faint)] shrink-0 ml-2">
-                    {d.version}
-                  </span>
-                </div>
-              ))}
+        {depsCount > 0 && (
+          <Tooltip text={`${depsCount} dépendances avec des versions obsolètes détectées dans les requirements.`}>
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" className="text-[var(--text-faint)]">
+                <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <span className="font-medium">{depsCount}</span>
+              <span className="text-[var(--text-faint)]">obsolètes</span>
             </div>
-          </div>
+          </Tooltip>
         )}
       </div>
     </section>
+  )
+}
+
+/* ── Tiny Tooltip ──────────────────────────────── */
+
+function Tooltip({ text, children }: { text: string; children: React.ReactNode }) {
+  return (
+    <span className="group/tip relative inline-flex">
+      {children}
+      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-[12px] leading-snug text-[var(--accent-text)] bg-[var(--text)] rounded-lg shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity duration-200 whitespace-normal w-max max-w-[240px] z-50 text-center">
+        {text}
+        <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-[var(--text)]" />
+      </span>
+    </span>
   )
 }

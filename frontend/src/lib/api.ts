@@ -94,3 +94,123 @@ export async function generateReadme(jobId: string): Promise<{ content: string; 
 export function extractRepoName(url: string): string {
   return url.replace(/\/$/, '').split('/').pop()?.replace('.git', '') || 'unknown'
 }
+
+/* ── SSE Streaming ───────────────────────────────── */
+
+async function readSSEStream(
+  response: Response,
+  handlers: {
+    onEvent: (data: Record<string, unknown>) => void
+    onDone?: () => void
+    onError?: (error: Error) => void
+  },
+): Promise<void> {
+  const reader = response.body?.getReader()
+  if (!reader) {
+    handlers.onError?.(new Error('No response stream'))
+    return
+  }
+
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed || !trimmed.startsWith('data: ')) continue
+        const payload = trimmed.slice(6)
+        if (payload === '[DONE]') {
+          handlers.onDone?.()
+          return
+        }
+        try {
+          handlers.onEvent(JSON.parse(payload))
+        } catch { /* skip malformed lines */ }
+      }
+    }
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name !== 'AbortError') {
+      handlers.onError?.(e)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+export async function streamChat(
+  jobId: string,
+  question: string,
+  callbacks: {
+    onToken: (token: string) => void
+    onSources: (sources: Array<Record<string, unknown>>, chunksUsed: number) => void
+    onDone?: () => void
+    onError?: (error: Error) => void
+  },
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/chat/${jobId}/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question }),
+    signal,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    callbacks.onError?.(new Error((err as Record<string, string>).detail || 'Chat failed'))
+    return
+  }
+
+  await readSSEStream(res, {
+    onEvent: (event) => {
+      if (event.type === 'token') callbacks.onToken(event.content as string)
+      else if (event.type === 'sources') {
+        callbacks.onSources(
+          (event.sources as Array<Record<string, unknown>>) ?? [],
+          (event.chunks_used as number) ?? 0,
+        )
+      }
+    },
+    onDone: callbacks.onDone,
+    onError: callbacks.onError,
+  })
+}
+
+export async function streamGenerateReadme(
+  jobId: string,
+  callbacks: {
+    onToken: (token: string) => void
+    onDone?: (source: string) => void
+    onError?: (error: Error) => void
+  },
+  options?: { language?: string; signal?: AbortSignal },
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/readme/${jobId}/generate/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ language: options?.language ?? 'en' }),
+    signal: options?.signal,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    callbacks.onError?.(new Error((err as Record<string, string>).detail || 'README generation failed'))
+    return
+  }
+
+  await readSSEStream(res, {
+    onEvent: (event) => {
+      if (event.type === 'token') callbacks.onToken(event.content as string)
+      else if (event.type === 'done') callbacks.onDone?.(event.source as string)
+      else if (event.type === 'error') callbacks.onError?.(new Error(event.message as string))
+    },
+    onDone: () => callbacks.onDone?.('generated'),
+    onError: callbacks.onError,
+  })
+}

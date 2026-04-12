@@ -175,3 +175,65 @@ def ask_question(
         "sources": sources,
         "chunks_used": len(retrieved),
     }
+
+
+def ask_question_stream(
+    state: GrimoireState,
+    question: str,
+    n_chunks: int = 5,
+):
+    """Stream an answer to a question about the analyzed codebase using RAG.
+
+    Yields dicts with a ``type`` key:
+    - ``{"type": "token", "content": "..."}`` for each token
+    - ``{"type": "sources", "sources": [...], "chunks_used": N}`` at the end
+    """
+    job_id = state["job_id"]
+    retrieved = query_chunks(job_id, question, n_results=n_chunks)
+    context = _build_context(
+        retrieved_chunks=retrieved,
+        manifest=state.get("repo_manifest"),
+        architecture=state.get("architecture_report"),
+        tech_debt=state.get("tech_debt_report"),
+    )
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        yield {"type": "token", "content": "Error: No OPENAI_API_KEY configured."}
+        yield {"type": "sources", "sources": [], "chunks_used": 0}
+        return
+
+    client = OpenAI(api_key=api_key)
+
+    try:
+        stream = client.chat.completions.create(
+            model="gpt-4o",
+            max_tokens=1024,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": f"# Codebase Context\n\n{context}\n\n# Question\n\n{question}",
+                },
+            ],
+            stream=True,
+        )
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield {"type": "token", "content": chunk.choices[0].delta.content}
+    except Exception as e:
+        logger.error("[%s] OpenAI streaming failed: %s", job_id, e)
+        yield {"type": "token", "content": f"Error calling OpenAI API: {e}"}
+
+    sources = [
+        {
+            "file_path": c.get("metadata", {}).get("file_path", "unknown"),
+            "node_type": c.get("metadata", {}).get("node_type", "unknown"),
+            "name": c.get("metadata", {}).get("name", "unknown"),
+            "start_line": c.get("metadata", {}).get("start_line", 0),
+            "end_line": c.get("metadata", {}).get("end_line", 0),
+            "relevance": c.get("distance", 1.0),
+        }
+        for c in retrieved
+    ]
+    yield {"type": "sources", "sources": sources, "chunks_used": len(retrieved)}
