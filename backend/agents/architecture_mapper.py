@@ -302,9 +302,9 @@ def _generate_mermaid(
     core_modules: tuple[str, ...] = (),
     orphan_modules: tuple[str, ...] = (),
 ) -> str:
-    """Generate a structured Mermaid graph TD diagram.
+    """Generate a Mermaid graph TD diagram.
 
-    Produces a top-down hierarchical diagram with subgraphs grouped
+    Produces a top-down hierarchical diagram with nodes grouped
     by dependency depth. Nodes are styled by role (entry, core, orphan).
     """
     lines = [
@@ -317,7 +317,7 @@ def _generate_mermaid(
 
     depths = _compute_depths(graph, entry_points)
 
-    # Group nodes by depth for subgraphs
+    # Group nodes by depth for layout ordering
     max_depth = max(depths.values(), default=0)
     layers: dict[int, list[str]] = {}
     for node in sorted(graph.nodes):
@@ -327,7 +327,7 @@ def _generate_mermaid(
     # Sanitize node IDs (Mermaid requires alphanumeric + underscore)
     node_ids: dict[str, str] = {}
     for node in sorted(graph.nodes):
-        safe = node.replace("/", "_").replace("-", "_").replace(".", "_")
+        safe = node.replace("/", "_").replace("-", "_").replace(".", "_").replace("(", "_").replace(")", "_")
         node_ids[node] = safe
 
     # Node styles by role
@@ -335,53 +335,41 @@ def _generate_mermaid(
     core_set = set(core_modules)
     orphan_set = set(orphan_modules)
 
-    def node_style(node: str) -> str:
-        if node in entry_set:
-            return "fill:#4f46e5,stroke:#3730a3,color:#fff,stroke-width:2px"
-        if node in core_set:
-            return "fill:#1e1b4b,stroke:#6366f1,color:#e0e7ff,stroke-width:2px"
-        if node in orphan_set:
-            return "fill:transparent,stroke:#a3a3a3,color:#737373,stroke-dasharray:5 5"
-        return "fill:#f5f5f5,stroke:#d4d4d8,color:#404040,stroke-width:1px"
-
-    # Subgraph labels
-    layer_labels = {
-        0: "Entry Points",
-        1: "Services",
-        2: "Core Modules",
-        3: "Utilities",
-    }
-
-    # Emit nodes inside subgraphs by layer
+    # Emit nodes grouped by depth (no subgraph clusters)
     for depth in range(max_depth + 1):
         nodes_in_layer = layers.get(depth, [])
         if not nodes_in_layer:
             continue
 
-        label = layer_labels.get(depth, f"Layer {depth}")
-        lines.append(f'    subgraph {label}["{label}"]')
-        lines.append(f'        direction LR')
-
         for node in nodes_in_layer:
             label_text = node.split("/")[-1] if "/" in node else node
             label_text = label_text.replace('"', "'")
-            style = node_style(node)
+            if node in entry_set:
+                style_class = "entryStyle"
+            elif node in core_set:
+                style_class = "coreStyle"
+            elif node in orphan_set:
+                style_class = "orphanStyle"
+            else:
+                style_class = "nodeStyle"
             lines.append(
-                f'        {node_ids[node]}["{label_text}"]:::nodeStyle'
+                f'    {node_ids[node]}["{label_text}"]:::{style_class}'
             )
 
-        lines.append(f'    end')
         lines.append("")
 
-    # Emit edges (outside subgraphs so they connect across)
+    # Emit edges
     for source, target in sorted(graph.edges):
         src_id = node_ids[source]
         tgt_id = node_ids[target]
         lines.append(f"    {src_id} --> {tgt_id}")
 
-    # Add classDef for default node style
+    # Add classDefs for role-based node styles
     lines.append("")
     lines.append("    classDef nodeStyle fill:#f5f5f5,stroke:#d4d4d8,color:#404040,stroke-width:1px")
+    lines.append("    classDef entryStyle fill:#4f46e5,stroke:#3730a3,color:#fff,stroke-width:2px")
+    lines.append("    classDef coreStyle fill:#1e1b4b,stroke:#6366f1,color:#e0e7ff,stroke-width:2px")
+    lines.append("    classDef orphanStyle fill:transparent,stroke:#a3a3a3,color:#737373,stroke-dasharray:5 5")
 
     return "\n".join(lines)
 

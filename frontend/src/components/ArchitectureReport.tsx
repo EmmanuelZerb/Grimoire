@@ -33,46 +33,6 @@ function Tooltip({ text, children }: { text: string; children: React.ReactNode }
   )
 }
 
-/* ── Insight Card ───────────────────────────────── */
-
-function InsightCard({
-  icon,
-  label,
-  tooltip,
-  items,
-}: {
-  icon: React.ReactNode
-  label: string
-  tooltip: string
-  items: string[]
-}) {
-  if (items.length === 0) return null
-  return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-6 min-w-[320px] flex-1">
-      <div className="flex items-center gap-3 mb-4">
-        <span className="text-[var(--text-muted)]">{icon}</span>
-        <Tooltip text={tooltip}>
-          <span className="text-[13px] font-semibold uppercase tracking-wider text-[var(--text-muted)] cursor-help underline decoration-dotted decoration-[var(--border-strong)] underline-offset-4">{label}</span>
-        </Tooltip>
-        <span className="text-[12px] tabular-nums text-[var(--text-faint)] bg-[var(--bg-subtle)] px-2.5 py-1 rounded-full font-medium">
-          {items.length}
-        </span>
-      </div>
-      <div className="flex flex-wrap gap-2.5">
-        {items.map((item) => (
-          <span
-            key={item}
-            className="text-[13px] font-mono px-3 py-2 rounded-md bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] whitespace-nowrap"
-            title={item}
-          >
-            {item}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 /* ── Custom Markdown Renderer ───────────────────── */
 
 function ReadmeRenderer({ content }: { content: string }) {
@@ -275,11 +235,11 @@ export function ArchitectureReport({ jobId }: Props) {
                   <MermaidDiagram diagram={diagram.diagram} />
                 )}
 
-                {/* Insight Grid — forced horizontal scroll */}
-                <div className="flex gap-5 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin' }}>
+                {/* Bottom info — minimal, no bordered cards */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   {/* Pattern */}
-                  <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-6 min-w-[320px] flex-1">
-                    <div className="flex items-center gap-3 mb-4">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
                       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-[var(--text-muted)]">
                         <rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
                         <rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
@@ -293,76 +253,39 @@ export function ArchitectureReport({ jobId }: Props) {
                     <span className="text-[18px] font-semibold text-[var(--text)] capitalize">{diagram.detected_pattern}</span>
                   </div>
 
-                  {/* Entry Points */}
-                  <InsightCard
-                    icon={
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                        <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
-                        <path d="M8 5v3l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                      </svg>
-                    }
-                    label="Points d'entrée"
-                    tooltip="Les points d'entrée sont les fichiers ou fonctions par lesquels l'exécution du programme démarre (ex: main(), app.listen(), index.ts). Ce sont les portes d'entrée du code."
-                    items={diagram.entry_points}
-                  />
-
-                  {/* Core Modules */}
-                  <InsightCard
-                    icon={
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 1l6 3.5v6L8 14 2 10.5v-6L8 1z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-                      </svg>
-                    }
-                    label="Modules core"
-                    tooltip="Les modules core sont les fichiers les plus connectés du projet — ils sont importés par beaucoup d'autres modules. Ce sont les pièces centrales de l'architecture."
-                    items={diagram.core_modules}
-                  />
-
-                  {/* Orphan Modules */}
-                  <InsightCard
-                    icon={
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  {/* Modules orphelins */}
+                  <div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-[var(--text-muted)]">
                         <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
                         <path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                       </svg>
-                    }
-                    label="Modules orphelins"
-                    tooltip="Les modules orphelins ne sont importés par aucun autre fichier du projet. Ils pourraient être du code mort, des utilitaires non utilisés, ou des fichiers en attente d'intégration."
-                    items={diagram.orphan_modules}
-                  />
-                </div>
-
-                {/* Cycles warning */}
-                {diagram.dependency_cycles?.length > 0 && (
-                  <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-[var(--text-muted)]">
-                        <path d="M8 1a7 7 0 100 14A7 7 0 008 1z" stroke="currentColor" strokeWidth="1.5"/>
-                        <path d="M8 5v3l2 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                      </svg>
-                      <Tooltip text="Un cycle de dépendance signifie que le module A dépend de B qui dépend de A (directement ou indirectement). Cela rend le code difficile à comprendre et peut causer des bugs.">
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] cursor-help underline decoration-dotted decoration-[var(--border-strong)] underline-offset-4">
-                          Cycles de dépendances
-                        </span>
+                      <Tooltip text="Les modules orphelins ne sont importés par aucun autre fichier du projet. Ils pourraient être du code mort, des utilitaires non utilisés, ou des fichiers en attente d'intégration.">
+                        <span className="text-[13px] font-semibold uppercase tracking-wider text-[var(--text-muted)] cursor-help underline decoration-dotted decoration-[var(--border-strong)] underline-offset-4">Modules orphelins</span>
                       </Tooltip>
-                      <span className="text-[10px] tabular-nums text-[var(--text-faint)] bg-[var(--bg-subtle)] px-1.5 py-0.5 rounded-full font-medium">
-                        {diagram.dependency_cycles.length}
-                      </span>
+                      {diagram.orphan_modules.length > 0 && (
+                        <span className="text-[11px] tabular-nums text-[var(--text-faint)] bg-[var(--bg-subtle)] px-2 py-0.5 rounded font-medium">
+                          {diagram.orphan_modules.length}
+                        </span>
+                      )}
                     </div>
-                    <div className="space-y-1.5">
-                      {diagram.dependency_cycles.slice(0, 5).map((c, i) => (
-                        <div key={i} className="text-[11px] font-mono text-[var(--text-secondary)] bg-[var(--bg-subtle)] px-2.5 py-1.5 rounded-md border border-[var(--border)] flex items-center gap-2">
-                          {c.map((node, j) => (
-                            <span key={j} className="flex items-center gap-2">
-                              {j > 0 && <span className="text-[var(--text-faint)]">&rarr;</span>}
-                              <span className="truncate">{node}</span>
-                            </span>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
+                    {diagram.orphan_modules.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {diagram.orphan_modules.map((mod) => (
+                          <span
+                            key={mod}
+                            className="text-[12px] font-mono px-3 py-1.5 rounded bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] whitespace-nowrap"
+                            title={mod}
+                          >
+                            {mod}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[13px] text-[var(--text-faint)]">Aucun module orphelin détecté</span>
+                    )}
                   </div>
-                )}
+                </div>
               </>
             ) : (
               <div className="flex items-center justify-center h-[300px] text-[var(--text-faint)] text-[13px]">
