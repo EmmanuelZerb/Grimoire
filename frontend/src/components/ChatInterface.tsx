@@ -150,7 +150,7 @@ export function ChatInterface({ jobId }: Props) {
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="absolute right-1.5 p-1 rounded-md bg-[var(--text)] text-[var(--accent-text)] hover:bg-[var(--text-secondary)] disabled:opacity-50 disabled:bg-[var(--text-faint)] transition-colors flex items-center justify-center shadow-xs"
+            className="absolute right-1.5 p-1 rounded-md bg-[var(--accent)] text-[var(--accent-text)] hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:bg-[var(--text-faint)] transition-colors flex items-center justify-center shadow-xs"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />

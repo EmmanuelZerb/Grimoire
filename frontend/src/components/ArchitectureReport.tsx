@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { getDiagram, getReport, getReadme, streamGenerateReadme } from '../lib/api'
-import { CytoscapeGraph } from './CytoscapeGraph'
+import { MermaidDiagram } from './MermaidDiagram'
 
 interface Props { jobId: string }
 
@@ -48,21 +48,21 @@ function InsightCard({
 }) {
   if (items.length === 0) return null
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-6 min-w-[320px] flex-1">
+      <div className="flex items-center gap-3 mb-4">
         <span className="text-[var(--text-muted)]">{icon}</span>
         <Tooltip text={tooltip}>
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] cursor-help underline decoration-dotted decoration-[var(--border-strong)] underline-offset-4">{label}</span>
+          <span className="text-[13px] font-semibold uppercase tracking-wider text-[var(--text-muted)] cursor-help underline decoration-dotted decoration-[var(--border-strong)] underline-offset-4">{label}</span>
         </Tooltip>
-        <span className="text-[10px] tabular-nums text-[var(--text-faint)] bg-[var(--bg-subtle)] px-1.5 py-0.5 rounded-full font-medium">
+        <span className="text-[12px] tabular-nums text-[var(--text-faint)] bg-[var(--bg-subtle)] px-2.5 py-1 rounded-full font-medium">
           {items.length}
         </span>
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2.5">
         {items.map((item) => (
           <span
             key={item}
-            className="text-[11px] font-mono px-2 py-1 rounded-md bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] truncate max-w-full"
+            className="text-[13px] font-mono px-3 py-2 rounded-md bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border)] whitespace-nowrap"
             title={item}
           >
             {item}
@@ -256,7 +256,7 @@ export function ArchitectureReport({ jobId }: Props) {
             onClick={() => setTab(key)}
             className={`pb-2.5 text-[13px] font-medium transition-colors border-b-2 -mb-[1px] ${
               tab === key
-                ? 'border-[var(--accent)] text-[var(--text)]'
+                ? 'border-[var(--color-primary)] text-[var(--text)]'
                 : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'
             }`}
           >
@@ -271,22 +271,15 @@ export function ArchitectureReport({ jobId }: Props) {
           <div className="space-y-5">
             {diagram ? (
               <>
-                {diagram.dependency_graph && Object.keys(diagram.dependency_graph).length > 0 && (
-                  <CytoscapeGraph
-                    dependencyGraph={diagram.dependency_graph}
-                    entryPoints={diagram.entry_points}
-                    coreModules={diagram.core_modules}
-                    orphanModules={diagram.orphan_modules}
-                    dependencyCycles={diagram.dependency_cycles}
-                    moduleDescriptions={report?.architecture_report?.module_descriptions}
-                  />
+                {diagram.diagram && (
+                  <MermaidDiagram diagram={diagram.diagram} />
                 )}
 
-                {/* Insight Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Insight Grid — forced horizontal scroll */}
+                <div className="flex gap-5 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin' }}>
                   {/* Pattern */}
-                  <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
-                    <div className="flex items-center gap-2 mb-2">
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-6 min-w-[320px] flex-1">
+                    <div className="flex items-center gap-3 mb-4">
                       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-[var(--text-muted)]">
                         <rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
                         <rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
@@ -294,10 +287,10 @@ export function ArchitectureReport({ jobId }: Props) {
                         <rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
                       </svg>
                       <Tooltip text="Le pattern architectural décrit la façon dont le code est organisé (ex: MVC, monolith, microservices, layered). Il est déduit de la structure des dossiers et des dépendances.">
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)] cursor-help underline decoration-dotted decoration-[var(--border-strong)] underline-offset-4">Pattern</span>
+                        <span className="text-[13px] font-semibold uppercase tracking-wider text-[var(--text-muted)] cursor-help underline decoration-dotted decoration-[var(--border-strong)] underline-offset-4">Pattern</span>
                       </Tooltip>
                     </div>
-                    <span className="text-[15px] font-semibold text-[var(--text)] capitalize">{diagram.detected_pattern}</span>
+                    <span className="text-[18px] font-semibold text-[var(--text)] capitalize">{diagram.detected_pattern}</span>
                   </div>
 
                   {/* Entry Points */}
@@ -441,28 +434,28 @@ export function ArchitectureReport({ jobId }: Props) {
               <div className="readme-container">
                 {readmeLoading && (
                   <div className="flex items-center gap-2 mb-4">
-                    <span className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-pulse" />
-                    <span className="text-[12px] text-sky-500 font-medium">Génération en cours...</span>
+                    <span className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-pulse" />
+                    <span className="text-[12px] text-[var(--color-primary)] font-medium">Génération en cours...</span>
                   </div>
                 )}
                 {!readmeLoading && readmeSource === 'generated' && (
                   <div className="flex items-center gap-2 mb-4">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-emerald-500">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-[var(--color-success)]">
                       <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.5"/>
                       <path d="M4 6l1.5 1.5L8 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                    <span className="text-[12px] text-emerald-600 font-medium">Généré avec succès</span>
+                    <span className="text-[12px] text-[var(--color-success)] font-medium">Généré avec succès</span>
                   </div>
                 )}
                 {readmeSource && (
                   <div className="mb-5">
                     <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-md border ${
                       readmeSource === 'repo'
-                        ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                        : 'bg-sky-500/10 text-sky-600 border-sky-500/20'
+                        ? 'bg-[var(--color-success-bg)] text-[var(--color-success)] border-[var(--color-success-border)]'
+                        : 'bg-[var(--color-primary-bg)] text-[var(--color-primary)] border-[var(--color-primary-border)]'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${
-                        readmeSource === 'repo' ? 'bg-emerald-500' : 'bg-sky-400'
+                        readmeSource === 'repo' ? 'bg-[var(--color-success)]' : 'bg-[var(--color-primary)]'
                       }`} />
                       {readmeSource === 'repo' ? 'README du dépôt' : 'Généré par IA'}
                     </span>

@@ -55,8 +55,8 @@ export function ProgressView({ repoName, githubUrl, currentStatus, currentAgent,
                 Terminé
               </span>
             ) : (
-              <span className="inline-flex text-[12px] font-medium px-2.5 py-1 bg-blue-50 text-blue-600 rounded-md border border-blue-100 items-center gap-1.5 shadow-sm">
-                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
+              <span className="inline-flex text-[12px] font-medium px-2.5 py-1 bg-[var(--color-primary-bg)] text-[var(--color-primary)] rounded-md border border-[var(--color-primary-border)] items-center gap-1.5 shadow-sm">
+                <span className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-pulse"></span>
                 En cours
               </span>
             )}
@@ -85,16 +85,16 @@ export function ProgressView({ repoName, githubUrl, currentStatus, currentAgent,
                 {/* Timeline Node */}
                 <div className="relative mt-0.5 shrink-0 z-10 bg-[var(--bg-card)] py-1">
                   {isDone ? (
-                    <div className="w-4 h-4 rounded-full bg-[var(--text)] flex items-center justify-center animate-pop-in shadow-sm">
+                    <div className="w-4 h-4 rounded-full bg-[var(--color-success)] flex items-center justify-center animate-pop-in shadow-sm">
                       <svg className="w-2.5 h-2.5 text-white animate-checkmark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
                   ) : isRunning ? (
-                    <div className="w-4 h-4 rounded-full border-2 border-[var(--border)] border-t-[var(--text)] animate-spin shadow-sm bg-[var(--bg-card)]" />
+                    <div className="w-4 h-4 rounded-full border-2 border-[var(--border)] border-t-[var(--color-primary)] animate-spin shadow-sm bg-[var(--bg-card)]" />
                   ) : isFailed ? (
-                    <div className="w-4 h-4 rounded-full bg-red-100 flex items-center justify-center shadow-sm">
-                      <svg className="w-2.5 h-2.5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <div className="w-4 h-4 rounded-full bg-[var(--color-danger-bg)] flex items-center justify-center shadow-sm">
+                      <svg className="w-2.5 h-2.5 text-[var(--color-danger)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </div>
@@ -118,7 +118,7 @@ export function ProgressView({ repoName, githubUrl, currentStatus, currentAgent,
         </div>
 
         {error && (
-          <div className="mt-8 p-3.5 bg-red-50 border border-red-100 rounded-lg text-[13px] text-red-700 animate-pop-in">
+          <div className="mt-8 p-3.5 bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] rounded-lg text-[13px] text-[var(--color-danger)] animate-pop-in">
             <span className="font-semibold block mb-1">Échec de l'exécution</span>
             <span className="font-mono text-[12px] opacity-90">{error}</span>
           </div>

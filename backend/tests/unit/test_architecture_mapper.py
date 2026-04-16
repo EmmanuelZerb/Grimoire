@@ -354,16 +354,17 @@ class TestGenerateMermaid:
     def test_empty_graph_produces_header_only(self):
         import networkx as nx
         result = _generate_mermaid(nx.DiGraph())
-        assert result.startswith("graph TD")
+        assert "graph TD" in result
         lines = result.strip().split("\n")
-        assert len(lines) == 1
+        # Header has init directive + graph TD = 2 lines
+        assert len(lines) == 2
 
     def test_single_node(self):
         import networkx as nx
         g = nx.DiGraph()
         g.add_node("main")
         result = _generate_mermaid(g)
-        assert 'main"' in result
+        assert "main" in result
 
     def test_edges_produce_arrows(self):
         import networkx as nx
@@ -371,6 +372,44 @@ class TestGenerateMermaid:
         g.add_edge("a", "b")
         result = _generate_mermaid(g)
         assert "-->" in result
+
+    def test_entry_points_style(self):
+        import networkx as nx
+        g = nx.DiGraph()
+        g.add_node("main")
+        g.add_node("utils")
+        result = _generate_mermaid(g, entry_points=("main",))
+        assert "Entry Points" in result
+
+    def test_core_modules_in_graph(self):
+        import networkx as nx
+        g = nx.DiGraph()
+        g.add_node("core")
+        g.add_node("helper")
+        result = _generate_mermaid(g, core_modules=("core",))
+        assert "core" in result
+
+    def test_orphan_modules_in_graph(self):
+        import networkx as nx
+        g = nx.DiGraph()
+        g.add_node("orphan")
+        result = _generate_mermaid(g, orphan_modules=("orphan",))
+        assert "orphan" in result
+
+    def test_subgraphs_by_depth(self):
+        import networkx as nx
+        g = nx.DiGraph()
+        g.add_edge("main", "service")
+        g.add_edge("service", "utils")
+        result = _generate_mermaid(g, entry_points=("main",))
+        assert "subgraph" in result
+        assert "Entry Points" in result
+
+    def test_dagre_renderer_config(self):
+        import networkx as nx
+        result = _generate_mermaid(nx.DiGraph())
+        assert "dagre" in result
+        assert "rankDirection" in result
 
 
 # --- _generate_module_descriptions ---

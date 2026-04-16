@@ -62,13 +62,13 @@ export function HeroSection({ onAnalyze, isLoading, error }: Props) {
             <button
               type="submit"
               disabled={isLoading || !url.trim()}
-              className="px-5 py-2.5 text-[14px] font-medium text-[var(--accent-text)] bg-[var(--text)] rounded-md hover:bg-[var(--text-secondary)] transition-colors disabled:opacity-50 shadow-sm"
+              className="px-5 py-2.5 text-[14px] font-medium text-[var(--accent-text)] bg-[var(--accent)] rounded-md hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50 shadow-sm"
             >
               {isLoading ? 'Analyse...' : 'Analyser le dépôt'}
             </button>
           </div>
           {(error || validationError) && (
-             <div className="mt-3 text-[13px] text-red-600 font-medium text-left">
+             <div className="mt-3 text-[13px] text-[var(--color-danger)] font-medium text-left">
                {validationError || error}
              </div>
           )}

@@ -45,7 +45,12 @@ export function TechDebtReport({ jobId }: Props) {
 
       {/* Score */}
       <div className="flex items-center gap-4 p-4 rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] mb-5">
-        <div className="text-[36px] font-semibold tabular-nums tracking-tight text-[var(--text)] leading-none">
+        <div className={`text-[36px] font-semibold tabular-nums tracking-tight leading-none ${
+          overallScore < 25 ? 'text-[var(--color-success)]' :
+          overallScore < 50 ? 'text-[var(--color-primary)]' :
+          overallScore < 75 ? 'text-[var(--color-warning)]' :
+          'text-[var(--color-danger)]'
+        }`}>
           {Math.round(overallScore)}
         </div>
         <div>
@@ -73,7 +78,12 @@ export function TechDebtReport({ jobId }: Props) {
                 <span className="text-[12px] text-[var(--text-secondary)] w-28 shrink-0 truncate" title={cat.name}>{cat.name}</span>
                 <div className="flex-1 h-1.5 bg-[var(--bg-subtle)] rounded-full overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-[var(--text-muted)] transition-all duration-700"
+                    className={`h-full rounded-full transition-all duration-700 ${
+                      cat.score >= 75 ? 'bg-[var(--color-danger)]' :
+                      cat.score >= 50 ? 'bg-[var(--color-warning)]' :
+                      cat.score >= 25 ? 'bg-[var(--color-primary)]' :
+                      'bg-[var(--color-success)]'
+                    }`}
                     style={{ width: `${cat.score}%`, opacity: getBarOpacity(cat.score) }}
                   />
                 </div>

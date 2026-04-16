@@ -16,9 +16,23 @@
   --border: #eaeaea;
   --border-subtle: #f0f0f0;
   --border-strong: #d4d4d4;
-  --accent: #171717;
-  --accent-hover: #333333;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
   --accent-text: #ffffff;
+
+  --color-success: #16a34a;
+  --color-success-bg: #f0fdf4;
+  --color-success-border: #bbf7d0;
+  --color-primary: #2563eb;
+  --color-primary-bg: #eff6ff;
+  --color-primary-border: #bfdbfe;
+  --color-warning: #d97706;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fde68a;
+  --color-danger: #dc2626;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+
   --shadow-xs: 0 1px 2px 0 rgba(0,0,0,0.03);
   --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
 }
@@ -35,9 +49,23 @@
   --border: #262626;
   --border-subtle: #1e1e1e;
   --border-strong: #333333;
-  --accent: #e5e5e5;
-  --accent-hover: #ffffff;
+  --accent: #818cf8;
+  --accent-hover: #a5b4fc;
   --accent-text: #0a0a0a;
+
+  --color-success: #4ade80;
+  --color-success-bg: #052e16;
+  --color-success-border: #166534;
+  --color-primary: #60a5fa;
+  --color-primary-bg: #172554;
+  --color-primary-border: #1e40af;
+  --color-warning: #fbbf24;
+  --color-warning-bg: #451a03;
+  --color-warning-border: #92400e;
+  --color-danger: #f87171;
+  --color-danger-bg: #450a0a;
+  --color-danger-border: #991b1b;
+
   --shadow-xs: 0 1px 2px 0 rgba(0,0,0,0.2);
   --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.3);
 }
@@ -92,6 +120,40 @@ h1, h2, h3, h4, h5, h6 {
 /* ── Cytoscape Graph ──────────────────────────── */
 .cy-graph-container canvas {
   outline: none !important;
+}
+
+/* ── Mermaid Diagram ─────────────────────────── */
+.mermaid-container {
+  background: var(--bg-card);
+}
+
+.mermaid-container svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.mermaid-container .node rect,
+.mermaid-container .node polygon {
+  rx: 8;
+  ry: 8;
+}
+
+.mermaid-container .edgeLabel {
+  font-size: 11px !important;
+}
+
+.mermaid-container .cluster rect {
+  rx: 10;
+  ry: 10;
+}
+
+.mermaid-container .cluster-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 /* ── Streaming Cursor ─────────────────────────── */

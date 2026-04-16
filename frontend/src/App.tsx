@@ -26,8 +26,8 @@ export default function App() {
                 <span className="text-[13px] text-[var(--text-muted)] truncate max-w-[250px]">{repoName}</span>
                 <div className="flex items-center h-5 px-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-md shadow-xs">
                   <div className={`w-1.5 h-1.5 rounded-full ${
-                    phase === 'analyzing' ? 'bg-blue-500 animate-pulse' :
-                    phase === 'completed' ? 'bg-[var(--accent)]' : 'bg-red-500'
+                    phase === 'analyzing' ? 'bg-[var(--color-primary)] animate-pulse' :
+                    phase === 'completed' ? 'bg-[var(--color-success)]' : 'bg-[var(--color-danger)]'
                   }`} />
                 </div>
               </div>

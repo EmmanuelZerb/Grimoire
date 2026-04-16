@@ -252,74 +252,136 @@ def _determine_pattern(
     return "monolith"
 
 
-def _generate_mermaid(graph: nx.DiGraph) -> str:
-    """Generate a Mermaid graph LR diagram from the dependency graph.
+def _compute_depths(
+    graph: nx.DiGraph, entry_points: tuple[str, ...],
+) -> dict[str, int]:
+    """BFS from entry points to assign a depth to each node."""
+    depths: dict[str, int] = {}
+    queue: list[str] = []
 
-    If the graph has no edges, structural edges are inferred from
-    shared directory prefixes so the diagram is never disconnected.
+    # Seed with entry points at depth 0
+    for ep in entry_points:
+        if ep in graph.nodes:
+            depths[ep] = 0
+            queue.append(ep)
+
+    # If no entry points, seed with zero in-degree nodes
+    if not queue:
+        for n in graph.nodes:
+            if graph.in_degree(n) == 0:
+                depths[n] = 0
+                queue.append(n)
+
+    # If still empty (all cycles), seed with first node
+    if not queue and graph.nodes:
+        first = sorted(graph.nodes)[0]
+        depths[first] = 0
+        queue.append(first)
+
+    while queue:
+        node = queue.pop(0)
+        depth = depths[node]
+        for target in graph.successors(node):
+            new_depth = depth + 1
+            if target not in depths or depths[target] < new_depth:
+                depths[target] = new_depth
+                if target not in queue:
+                    queue.append(target)
+
+    # Assign depth 0 to unvisited nodes
+    for n in graph.nodes:
+        if n not in depths:
+            depths[n] = 0
+
+    return depths
+
+
+def _generate_mermaid(
+    graph: nx.DiGraph,
+    entry_points: tuple[str, ...] = (),
+    core_modules: tuple[str, ...] = (),
+    orphan_modules: tuple[str, ...] = (),
+) -> str:
+    """Generate a structured Mermaid graph TD diagram.
+
+    Produces a top-down hierarchical diagram with subgraphs grouped
+    by dependency depth. Nodes are styled by role (entry, core, orphan).
     """
     lines = [
-        "%%{init: {'flowchart': {'defaultRenderer': 'dagre', 'rankDirection': 'LR'}}}%%",
-        "flowchart LR",
+        "%%{init: {'flowchart': {'defaultRenderer': 'dagre', 'rankDirection': 'TD', 'nodeSpacing': 40, 'layerSpacing': 60}}}%%",
+        "graph TD",
     ]
 
     if not graph.nodes:
         return "\n".join(lines)
 
-    # Create node ID mapping
+    depths = _compute_depths(graph, entry_points)
+
+    # Group nodes by depth for subgraphs
+    max_depth = max(depths.values(), default=0)
+    layers: dict[int, list[str]] = {}
+    for node in sorted(graph.nodes):
+        d = depths[node]
+        layers.setdefault(d, []).append(node)
+
+    # Sanitize node IDs (Mermaid requires alphanumeric + underscore)
     node_ids: dict[str, str] = {}
-    sorted_nodes = sorted(graph.nodes)
-    for i, node in enumerate(sorted_nodes):
-        label = node.split("/")[-1] if "/" in node else node
-        label = label.replace('"', "'")
-        node_ids[node] = f"N{i}"
-        lines.append(f'    {node_ids[node]}["{label}"]')
+    for node in sorted(graph.nodes):
+        safe = node.replace("/", "_").replace("-", "_").replace(".", "_")
+        node_ids[node] = safe
 
-    # Add real dependency edges
-    edges_added: set[tuple[str, str]] = set()
+    # Node styles by role
+    entry_set = set(entry_points)
+    core_set = set(core_modules)
+    orphan_set = set(orphan_modules)
+
+    def node_style(node: str) -> str:
+        if node in entry_set:
+            return "fill:#4f46e5,stroke:#3730a3,color:#fff,stroke-width:2px"
+        if node in core_set:
+            return "fill:#1e1b4b,stroke:#6366f1,color:#e0e7ff,stroke-width:2px"
+        if node in orphan_set:
+            return "fill:transparent,stroke:#a3a3a3,color:#737373,stroke-dasharray:5 5"
+        return "fill:#f5f5f5,stroke:#d4d4d8,color:#404040,stroke-width:1px"
+
+    # Subgraph labels
+    layer_labels = {
+        0: "Entry Points",
+        1: "Services",
+        2: "Core Modules",
+        3: "Utilities",
+    }
+
+    # Emit nodes inside subgraphs by layer
+    for depth in range(max_depth + 1):
+        nodes_in_layer = layers.get(depth, [])
+        if not nodes_in_layer:
+            continue
+
+        label = layer_labels.get(depth, f"Layer {depth}")
+        lines.append(f'    subgraph {label}["{label}"]')
+        lines.append(f'        direction LR')
+
+        for node in nodes_in_layer:
+            label_text = node.split("/")[-1] if "/" in node else node
+            label_text = label_text.replace('"', "'")
+            style = node_style(node)
+            lines.append(
+                f'        {node_ids[node]}["{label_text}"]:::nodeStyle'
+            )
+
+        lines.append(f'    end')
+        lines.append("")
+
+    # Emit edges (outside subgraphs so they connect across)
     for source, target in sorted(graph.edges):
-        lines.append(f"    {node_ids[source]} --> {node_ids[target]}")
-        edges_added.add((source, target))
+        src_id = node_ids[source]
+        tgt_id = node_ids[target]
+        lines.append(f"    {src_id} --> {tgt_id}")
 
-    # Link orphan nodes (no edges) with invisible edges to force horizontal layout
-    nodes_with_edges: set[str] = set()
-    for s, t in edges_added:
-        nodes_with_edges.add(s)
-        nodes_with_edges.add(t)
-    orphans = [n for n in sorted_nodes if n not in nodes_with_edges]
-    if len(orphans) > 1:
-        for i in range(len(orphans) - 1):
-            lines.append(f"    {node_ids[orphans[i]]} ~~~ {node_ids[orphans[i + 1]]}")
-
-    # If no edges were found, infer structural edges from directory groups
-    if not edges_added and len(sorted_nodes) > 1:
-        groups: dict[str, list[str]] = {}
-        for node in sorted_nodes:
-            parts = node.split("/")
-            prefix = "/".join(parts[:-1]) if len(parts) > 1 else ""
-            groups.setdefault(prefix, []).append(node)
-
-        # Connect entry point / first node to one node per group
-        all_group_keys = sorted(groups.keys())
-        first_node = sorted_nodes[0]
-        seen_targets: set[str] = set()
-
-        for gkey in all_group_keys:
-            for gnode in groups[gkey]:
-                if gnode == first_node:
-                    continue
-                if gnode not in seen_targets:
-                    lines.append(f"    {node_ids[first_node]} --> {node_ids[gnode]}")
-                    seen_targets.add(gnode)
-                    break
-
-        # Connect groups sequentially
-        prev_group_nodes = groups.get(all_group_keys[0], [])
-        for gkey in all_group_keys[1:]:
-            cur_group_nodes = groups[gkey]
-            if prev_group_nodes and cur_group_nodes:
-                lines.append(f"    {node_ids[prev_group_nodes[-1]]} --> {node_ids[cur_group_nodes[0]]}")
-            prev_group_nodes = cur_group_nodes
+    # Add classDef for default node style
+    lines.append("")
+    lines.append("    classDef nodeStyle fill:#f5f5f5,stroke:#d4d4d8,color:#404040,stroke-width:1px")
 
     return "\n".join(lines)
 
@@ -418,7 +480,7 @@ def architecture_mapper(state: GrimoireState) -> GrimoireState:
         orphan_modules = _find_orphan_modules(graph)
         cycles = _detect_cycles(graph)
         pattern = _determine_pattern(manifest, graph)
-        mermaid = _generate_mermaid(graph)
+        mermaid = _generate_mermaid(graph, entry_points, core_modules, orphan_modules)
         descriptions = _generate_module_descriptions(chunks)
 
         # Convert graph to adjacency dict for serialization
