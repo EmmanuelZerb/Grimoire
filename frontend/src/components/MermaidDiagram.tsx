@@ -1,4 +1,4 @@
-import { useEffect, useRef, useId, useState } from 'react'
+import { useEffect, useRef, useId, useState, useCallback } from 'react'
 import mermaid from 'mermaid'
 
 interface MermaidDiagramProps {
@@ -12,8 +12,8 @@ function initMermaid(isDark: boolean) {
     startOnLoad: false,
     theme: isDark ? 'dark' : 'neutral',
     flowchart: {
-      useMaxWidth: true,
-      htmlLabels: true,
+      useMaxWidth: false,
+      htmlLabels: false,
       curve: 'basis',
     },
     themeVariables: {
@@ -27,12 +27,194 @@ function initMermaid(isDark: boolean) {
   initDone = true
 }
 
+const DEFAULT_HEIGHT = 380
+const MIN_HEIGHT = 200
+const MAX_HEIGHT = 900
+const PAN_STEP = 200
+const ZOOM_STEP = 0.12
+const MIN_ZOOM = 0.3
+const MAX_ZOOM = 4
+const INITIAL_ZOOM = 2.8
+
+/** Smooth animation via requestAnimationFrame with ease-out cubic. */
+function smoothPan(
+  fromX: number, fromY: number,
+  toX: number, toY: number,
+  duration: number,
+  onFrame: (x: number, y: number) => void,
+) {
+  const start = performance.now()
+  function tick(now: number) {
+    const t = Math.min((now - start) / duration, 1)
+    const ease = 1 - Math.pow(1 - t, 3)
+    onFrame(fromX + (toX - fromX) * ease, fromY + (toY - fromY) * ease)
+    if (t < 1) requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
+}
+
 export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const svgRef = useRef<SVGSVGElement | null>(null)
   const uniqueId = useId().replace(/:/g, '_')
   const [error, setError] = useState<string | null>(null)
   const renderCount = useRef(0)
 
+  // Original SVG dimensions (set after render)
+  const origWidth = useRef(0)
+  const origHeight = useRef(0)
+
+  // View state
+  const zoom = useRef(INITIAL_ZOOM)
+  const panX = useRef(0)
+  const panY = useRef(0)
+  const isPanning = useRef(false)
+  const lastMouse = useRef({ x: 0, y: 0 })
+
+  const [height, setHeight] = useState(DEFAULT_HEIGHT)
+  const isResizing = useRef(false)
+  const resizeStartY = useRef(0)
+  const resizeStartH = useRef(0)
+
+  /** Apply zoom & pan by adjusting the SVG viewBox — keeps everything crisp. */
+  const applyViewBox = useCallback(() => {
+    const svg = svgRef.current
+    if (!svg || origWidth.current === 0) return
+
+    const vw = origWidth.current / zoom.current
+    const vh = origHeight.current / zoom.current
+    const vx = -panX.current / zoom.current
+    const vy = -panY.current / zoom.current
+
+    svg.setAttribute('viewBox', `${vx} ${vy} ${vw} ${vh}`)
+    svg.style.width = origWidth.current + 'px'
+    svg.style.height = origHeight.current + 'px'
+  }, [])
+
+  // Reset on diagram change
+  useEffect(() => {
+    panX.current = 0
+    panY.current = 0
+    zoom.current = INITIAL_ZOOM
+    applyViewBox()
+  }, [diagram, applyViewBox])
+
+  // Wheel zoom
+  useEffect(() => {
+    const vp = viewportRef.current
+    if (!vp || !diagram || error) return
+
+    function onWheel(e: WheelEvent) {
+      e.preventDefault()
+      const oldZoom = zoom.current
+      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
+      zoom.current = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, oldZoom + delta))
+      applyViewBox()
+    }
+
+    vp.addEventListener('wheel', onWheel, { passive: false })
+    return () => vp.removeEventListener('wheel', onWheel)
+  }, [diagram, error, applyViewBox])
+
+  // Pan with left-click drag
+  useEffect(() => {
+    const vp = viewportRef.current
+    if (!vp || !diagram || error) return
+
+    function onMouseDown(e: MouseEvent) {
+      if (e.button !== 0) return
+      const target = e.target as HTMLElement
+      if (target.closest('button') || target.closest('.resize-handle')) return
+      e.preventDefault()
+      isPanning.current = true
+      lastMouse.current = { x: e.clientX, y: e.clientY }
+    }
+
+    function onMouseMove(e: MouseEvent) {
+      if (isResizing.current) return
+      if (!isPanning.current) return
+      panX.current += e.clientX - lastMouse.current.x
+      panY.current += e.clientY - lastMouse.current.y
+      lastMouse.current = { x: e.clientX, y: e.clientY }
+      applyViewBox()
+    }
+
+    function onMouseUp() {
+      isPanning.current = false
+    }
+
+    vp.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      vp.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [diagram, error, applyViewBox])
+
+  // Resize handle drag
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!isResizing.current) return
+      const delta = resizeStartY.current - e.clientY
+      const newH = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, resizeStartH.current + delta))
+      setHeight(newH)
+    }
+
+    function onMouseUp() {
+      isResizing.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
+
+  const smoothPanTo = useCallback((dx: number, dy: number) => {
+    const fromX = panX.current
+    const fromY = panY.current
+    smoothPan(fromX, fromY, fromX + dx, fromY + dy, 350, (x, y) => {
+      panX.current = x
+      panY.current = y
+      applyViewBox()
+    })
+  }, [applyViewBox])
+
+  const resetView = useCallback(() => {
+    const fromX = panX.current
+    const fromY = panY.current
+    const fromZ = zoom.current
+    const start = performance.now()
+    const duration = 350
+    function tick(now: number) {
+      const t = Math.min((now - start) / duration, 1)
+      const ease = 1 - Math.pow(1 - t, 3)
+      panX.current = fromX * (1 - ease)
+      panY.current = fromY * (1 - ease)
+      zoom.current = fromZ + (INITIAL_ZOOM - fromZ) * ease
+      applyViewBox()
+      if (t < 1) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }, [applyViewBox])
+
+  const onResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    isResizing.current = true
+    resizeStartY.current = e.clientY
+    resizeStartH.current = height
+    document.body.style.cursor = 'ns-resize'
+    document.body.style.userSelect = 'none'
+  }, [height])
+
+  // Mermaid render
   useEffect(() => {
     if (!diagram) return
 
@@ -46,15 +228,28 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
 
     async function render() {
       try {
-        // Remove any previous mermaid error elements
         const prev = document.getElementById('d' + renderId)
         if (prev) prev.remove()
 
-        containerRef.current!.innerHTML = ''
+        const container = viewportRef.current!
+        container.innerHTML = ''
         const { svg } = await mermaid.render(renderId, diagram)
-        if (containerRef.current) {
-          containerRef.current.innerHTML = svg
+        container.innerHTML = svg
+
+        // Grab the SVG element and read its dimensions
+        const svgEl = container.querySelector('svg') as SVGSVGElement | null
+        if (svgEl) {
+          svgRef.current = svgEl
+          // Use the SVG's own width/height (set by Mermaid)
+          const w = svgEl.viewBox.baseVal.width || svgEl.getBoundingClientRect().width
+          const h = svgEl.viewBox.baseVal.height || svgEl.getBoundingClientRect().height
+          origWidth.current = w
+          origHeight.current = h
+          svgEl.style.maxWidth = 'none'
+          svgEl.style.overflow = 'visible'
         }
+
+        applyViewBox()
       } catch (e) {
         console.warn('[MermaidDiagram] Render failed:', e)
         setError('Erreur de rendu du diagramme')
@@ -62,7 +257,7 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
     }
 
     render()
-  }, [diagram, uniqueId])
+  }, [diagram, uniqueId, applyViewBox])
 
   // Theme reactivity
   useEffect(() => {
@@ -70,10 +265,22 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
       if (!diagram) return
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
       initMermaid(isDark)
-      // Force re-render
       const renderId = `mermaid-${uniqueId}-${++renderCount.current}`
       mermaid.render(renderId, diagram).then(({ svg }) => {
-        if (containerRef.current) containerRef.current.innerHTML = svg
+        if (viewportRef.current) {
+          viewportRef.current.innerHTML = svg
+          const svgEl = viewportRef.current.querySelector('svg') as SVGSVGElement | null
+          if (svgEl) {
+            svgRef.current = svgEl
+            const w = svgEl.viewBox.baseVal.width || svgEl.getBoundingClientRect().width
+            const h = svgEl.viewBox.baseVal.height || svgEl.getBoundingClientRect().height
+            origWidth.current = w
+            origHeight.current = h
+            svgEl.style.maxWidth = 'none'
+            svgEl.style.overflow = 'visible'
+          }
+        }
+        applyViewBox()
       }).catch(() => {})
     })
 
@@ -83,7 +290,7 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
     })
 
     return () => observer.disconnect()
-  }, [diagram, uniqueId])
+  }, [diagram, uniqueId, applyViewBox])
 
   if (!diagram) {
     return (
@@ -107,10 +314,66 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="mermaid-container rounded-lg border border-[var(--border)] overflow-hidden"
-      style={{ minHeight: 300, width: '100%' }}
-    />
+    <div className="mermaid-container rounded-lg border border-[var(--border)] overflow-hidden relative group/diagram">
+      {/* Viewport */}
+      <div
+        ref={viewportRef}
+        className="overflow-hidden w-full relative"
+        style={{ height, cursor: 'default' }}
+      />
+
+      {/* Top bar: zoom indicator + reset */}
+      <div className="absolute top-3 left-3 flex items-center gap-2 z-10 opacity-0 group-hover/diagram:opacity-100 transition-opacity">
+        <span className="text-[10px] font-mono text-[var(--text-faint)] bg-[var(--bg-card)]/90 backdrop-blur-sm border border-[var(--border)] px-2 py-1 rounded-md tabular-nums">
+          {Math.round(zoom.current * 100)}%
+        </span>
+        <button
+          onClick={resetView}
+          className="w-7 h-7 rounded-md bg-[var(--bg-card)]/90 backdrop-blur-sm border border-[var(--border)] flex items-center justify-center text-[var(--text-faint)] hover:text-[var(--text-muted)] transition-colors pointer-events-auto"
+          title="Réinitialiser la vue"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M1 5h1M10 5h1M6 1v1M6 10v1M2.5 2.5l.7.7M8.8 8.8l.7.7M2.5 9.5l.7-.7M8.8 3.2l.7-.7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      {/* Left arrow */}
+      <div className="absolute top-1/2 -translate-y-1/2 left-3 z-10 opacity-0 group-hover/diagram:opacity-100 transition-opacity">
+        <button
+          onClick={() => smoothPanTo(PAN_STEP, 0)}
+          className="w-9 h-9 rounded-full bg-[var(--bg-card)]/90 backdrop-blur-sm border border-[var(--border)] flex items-center justify-center text-[var(--text-faint)] hover:text-[var(--text)] hover:border-[var(--border-strong)] hover:shadow-sm active:scale-90 transition-all duration-200 pointer-events-auto"
+          title="Défiler à gauche"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M8.5 3L5 7l3.5 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
+      {/* Right arrow */}
+      <div className="absolute top-1/2 -translate-y-1/2 right-3 z-10 opacity-0 group-hover/diagram:opacity-100 transition-opacity">
+        <button
+          onClick={() => smoothPanTo(-PAN_STEP, 0)}
+          className="w-9 h-9 rounded-full bg-[var(--bg-card)]/90 backdrop-blur-sm border border-[var(--border)] flex items-center justify-center text-[var(--text-faint)] hover:text-[var(--text)] hover:border-[var(--border-strong)] hover:shadow-sm active:scale-90 transition-all duration-200 pointer-events-auto"
+          title="Défiler à droite"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M5.5 3L9 7l-3.5 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
+      {/* Resize handle (bottom-right) */}
+      <div
+        className="resize-handle absolute bottom-0 right-0 z-10 cursor-ns-resize opacity-30 hover:opacity-60 transition-opacity pointer-events-auto"
+        onMouseDown={onResizeStart}
+        title="Redimensionner"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M16 4L4 16M16 10L10 16M16 16L16 16" stroke="var(--text-faint)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    </div>
   )
 }

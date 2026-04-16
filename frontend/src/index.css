@@ -117,10 +117,14 @@ h1, h2, h3, h4, h5, h6 {
   animation: checkmark 0.4s ease-out 0.1s forwards;
 }
 
-/* ── Cytoscape Graph ──────────────────────────── */
+/* ── Cytoscape Graph (legacy, force reset) ──── */
 .cy-graph-container canvas {
   outline: none !important;
 }
+/* Force normal cursor everywhere — Cytoscape injects grab cursors globally */
+body, body * { cursor: default !important; }
+button, a, [role="button"], select, input, textarea,
+button *, a *, [role="button"] * { cursor: pointer !important; }
 
 /* ── Mermaid Diagram ─────────────────────────── */
 .mermaid-container {
