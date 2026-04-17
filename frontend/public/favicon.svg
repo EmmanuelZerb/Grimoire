@@ -1,4 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="2" fill="#f4f1eb"/>
-  <text x="16" y="22" text-anchor="middle" font-family="monospace" font-size="18" font-weight="bold" fill="#1d1d1d" transform="rotate(-8 16 22)">G</text>
+  <rect width="32" height="32" rx="8" fill="#4f46e5"/>
+  <!-- Open book silhouette -->
+  <path d="M16 8C16 8 12.5 7 6 7.5V23C12.5 22.5 16 24 16 24V8Z" fill="white" opacity=".15"/>
+  <path d="M16 8C16 8 12.5 7 6 7.5V23C12.5 22.5 16 24 16 24V8Z" stroke="white" strokeWidth="1.4" strokeLinejoin="round" opacity=".9"/>
+  <path d="M16 8C16 8 19.5 7 26 7.5V23C19.5 22.5 16 24 16 24V8Z" fill="white" opacity=".1"/>
+  <path d="M16 8C16 8 19.5 7 26 7.5V23C19.5 22.5 16 24 16 24V8Z" stroke="white" strokeWidth="1.4" strokeLinejoin="round" opacity=".9"/>
+  <!-- Code brackets left -->
+  <path d="M11 14L8.5 16L11 18" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" opacity=".85"/>
+  <!-- Code brackets right -->
+  <path d="M21 14L23.5 16L21 18" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" opacity=".85"/>
+  <!-- Graph node -->
+  <circle cx="16" cy="16" r="1.3" fill="white" opacity=".7"/>
 </svg>

@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 24" fill="none">
-  <!-- Book spine -->
-  <rect x="1" y="1" width="16" height="22" rx="2" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-  <!-- Spine shadow -->
-  <rect x="3" y="4" width="2.5" height="18" rx="1" fill="currentColor" opacity=".15"/>
-  <!-- Pages edge -->
-  <rect x="4.5" y="5.5" width="13.5" height="15" rx="1" fill="currentColor" opacity=".06"/>
-  <!-- Star/rune symbol -->
-  <circle cx="11" cy="11" r="2.5" stroke="currentColor" strokeWidth=".8" fill="none" opacity=".5"/>
-  <circle cx="11" cy="11" r=".7" fill="currentColor" opacity=".5"/>
-  <!-- Decorative lines -->
-  <line x1="7" y1="15.5" x2="15" y2="15.5" stroke="currentColor" strokeWidth=".6" strokeLinecap="round" opacity=".2"/>
-  <line x1="8" y1="17.5" x2="14" y2="17.5" stroke="currentColor" strokeWidth=".6" strokeLinecap="round" opacity=".12"/>
+  <!-- Open book left page -->
+  <path d="M10 4C10 4 7 3 2 3.5V19.5C7 19 10 20 10 20V4Z" fill="currentColor" opacity=".08"/>
+  <path d="M10 4C10 4 7 3 2 3.5V19.5C7 19 10 20 10 20V4Z" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round"/>
+  <!-- Open book right page -->
+  <path d="M10 4C10 4 13 3 18 3.5V19.5C13 19 10 20 10 20V4Z" fill="currentColor" opacity=".05"/>
+  <path d="M10 4C10 4 13 3 18 3.5V19.5C13 19 10 20 10 20V4Z" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round"/>
+  <!-- Code brackets on left page -->
+  <path d="M6 10L4.5 12L6 14" stroke="var(--accent, #4f46e5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+  <!-- Code brackets on right page -->
+  <path d="M14 10L15.5 12L14 14" stroke="var(--accent, #4f46e5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+  <!-- Connecting dot between pages (graph node) -->
+  <circle cx="10" cy="12" r="1" fill="var(--accent, #4f46e5)" opacity=".6"/>
 </svg>
