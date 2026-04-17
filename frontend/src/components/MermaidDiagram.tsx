@@ -34,7 +34,7 @@ const PAN_STEP = 200
 const ZOOM_STEP = 0.12
 const MIN_ZOOM = 0.3
 const MAX_ZOOM = 4
-const INITIAL_ZOOM = 2.8
+const INITIAL_ZOOM = 1
 
 /** Smooth animation via requestAnimationFrame with ease-out cubic. */
 function smoothPan(
@@ -60,10 +60,6 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
   const [error, setError] = useState<string | null>(null)
   const renderCount = useRef(0)
 
-  // Original SVG dimensions (set after render)
-  const origWidth = useRef(0)
-  const origHeight = useRef(0)
-
   // View state
   const zoom = useRef(INITIAL_ZOOM)
   const panX = useRef(0)
@@ -76,19 +72,15 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
   const resizeStartY = useRef(0)
   const resizeStartH = useRef(0)
 
-  /** Apply zoom & pan by adjusting the SVG viewBox — keeps everything crisp. */
-  const applyViewBox = useCallback(() => {
+  /** Apply zoom & pan via CSS transform — keeps the diagram centered. */
+  const applyTransform = useCallback(() => {
     const svg = svgRef.current
-    if (!svg || origWidth.current === 0) return
-
-    const vw = origWidth.current / zoom.current
-    const vh = origHeight.current / zoom.current
-    const vx = -panX.current / zoom.current
-    const vy = -panY.current / zoom.current
-
-    svg.setAttribute('viewBox', `${vx} ${vy} ${vw} ${vh}`)
-    svg.style.width = origWidth.current + 'px'
-    svg.style.height = origHeight.current + 'px'
+    if (!svg) return
+    svg.style.transform = `translate(-50%, -50%) translate(${panX.current}px, ${panY.current}px) scale(${zoom.current})`
+    svg.style.transformOrigin = 'center center'
+    svg.style.position = 'absolute'
+    svg.style.left = '50%'
+    svg.style.top = '50%'
   }, [])
 
   // Reset on diagram change
@@ -96,8 +88,8 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
     panX.current = 0
     panY.current = 0
     zoom.current = INITIAL_ZOOM
-    applyViewBox()
-  }, [diagram, applyViewBox])
+    applyTransform()
+  }, [diagram, applyTransform])
 
   // Wheel zoom
   useEffect(() => {
@@ -109,12 +101,12 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
       const oldZoom = zoom.current
       const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
       zoom.current = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, oldZoom + delta))
-      applyViewBox()
+      applyTransform()
     }
 
     vp.addEventListener('wheel', onWheel, { passive: false })
     return () => vp.removeEventListener('wheel', onWheel)
-  }, [diagram, error, applyViewBox])
+  }, [diagram, error, applyTransform])
 
   // Pan with left-click drag
   useEffect(() => {
@@ -136,7 +128,7 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
       panX.current += e.clientX - lastMouse.current.x
       panY.current += e.clientY - lastMouse.current.y
       lastMouse.current = { x: e.clientX, y: e.clientY }
-      applyViewBox()
+      applyTransform()
     }
 
     function onMouseUp() {
@@ -151,13 +143,13 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
     }
-  }, [diagram, error, applyViewBox])
+  }, [diagram, error, applyTransform])
 
   // Resize handle drag
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!isResizing.current) return
-      const delta = resizeStartY.current - e.clientY
+      const delta = e.clientY - resizeStartY.current
       const newH = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, resizeStartH.current + delta))
       setHeight(newH)
     }
@@ -182,9 +174,9 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
     smoothPan(fromX, fromY, fromX + dx, fromY + dy, 350, (x, y) => {
       panX.current = x
       panY.current = y
-      applyViewBox()
+      applyTransform()
     })
-  }, [applyViewBox])
+  }, [applyTransform])
 
   const resetView = useCallback(() => {
     const fromX = panX.current
@@ -198,11 +190,11 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
       panX.current = fromX * (1 - ease)
       panY.current = fromY * (1 - ease)
       zoom.current = fromZ + (INITIAL_ZOOM - fromZ) * ease
-      applyViewBox()
+      applyTransform()
       if (t < 1) requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
-  }, [applyViewBox])
+  }, [applyTransform])
 
   const onResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -236,20 +228,13 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
         const { svg } = await mermaid.render(renderId, diagram)
         container.innerHTML = svg
 
-        // Grab the SVG element and read its dimensions
         const svgEl = container.querySelector('svg') as SVGSVGElement | null
         if (svgEl) {
           svgRef.current = svgEl
-          // Use the SVG's own width/height (set by Mermaid)
-          const w = svgEl.viewBox.baseVal.width || svgEl.getBoundingClientRect().width
-          const h = svgEl.viewBox.baseVal.height || svgEl.getBoundingClientRect().height
-          origWidth.current = w
-          origHeight.current = h
           svgEl.style.maxWidth = 'none'
           svgEl.style.overflow = 'visible'
+          applyTransform()
         }
-
-        applyViewBox()
       } catch (e) {
         console.warn('[MermaidDiagram] Render failed:', e)
         setError('Erreur de rendu du diagramme')
@@ -257,7 +242,7 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
     }
 
     render()
-  }, [diagram, uniqueId, applyViewBox])
+  }, [diagram, uniqueId, applyTransform])
 
   // Theme reactivity
   useEffect(() => {
@@ -272,15 +257,11 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
           const svgEl = viewportRef.current.querySelector('svg') as SVGSVGElement | null
           if (svgEl) {
             svgRef.current = svgEl
-            const w = svgEl.viewBox.baseVal.width || svgEl.getBoundingClientRect().width
-            const h = svgEl.viewBox.baseVal.height || svgEl.getBoundingClientRect().height
-            origWidth.current = w
-            origHeight.current = h
             svgEl.style.maxWidth = 'none'
             svgEl.style.overflow = 'visible'
+            applyTransform()
           }
         }
-        applyViewBox()
       }).catch(() => {})
     })
 
@@ -290,7 +271,7 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
     })
 
     return () => observer.disconnect()
-  }, [diagram, uniqueId, applyViewBox])
+  }, [diagram, uniqueId, applyTransform])
 
   if (!diagram) {
     return (
