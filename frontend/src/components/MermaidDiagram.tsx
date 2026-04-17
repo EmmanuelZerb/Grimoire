@@ -55,6 +55,7 @@ function smoothPan(
 
 export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
   const uniqueId = useId().replace(/:/g, '_')
   const [error, setError] = useState<string | null>(null)
@@ -68,19 +69,18 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
   const lastMouse = useRef({ x: 0, y: 0 })
 
   const [height, setHeight] = useState(DEFAULT_HEIGHT)
+  const [zoomLevel, setZoomLevel] = useState(INITIAL_ZOOM)
   const isResizing = useRef(false)
   const resizeStartY = useRef(0)
   const resizeStartH = useRef(0)
 
-  /** Apply zoom & pan via CSS transform — keeps the diagram centered. */
+  /** Apply zoom & pan via CSS transform on the wrapper — flexbox handles centering. */
   const applyTransform = useCallback(() => {
-    const svg = svgRef.current
-    if (!svg) return
-    svg.style.transform = `translate(-50%, -50%) translate(${panX.current}px, ${panY.current}px) scale(${zoom.current})`
-    svg.style.transformOrigin = 'center center'
-    svg.style.position = 'absolute'
-    svg.style.left = '50%'
-    svg.style.top = '50%'
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    wrapper.style.transform = `translate(${panX.current}px, ${panY.current}px) scale(${zoom.current})`
+    wrapper.style.transformOrigin = 'center center'
+    setZoomLevel(zoom.current)
   }, [])
 
   // Reset on diagram change
@@ -88,6 +88,7 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
     panX.current = 0
     panY.current = 0
     zoom.current = INITIAL_ZOOM
+    setZoomLevel(INITIAL_ZOOM)
     applyTransform()
   }, [diagram, applyTransform])
 
@@ -223,17 +224,28 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
         const prev = document.getElementById('d' + renderId)
         if (prev) prev.remove()
 
-        const container = viewportRef.current!
-        container.innerHTML = ''
+        const wrapper = wrapperRef.current!
+        wrapper.innerHTML = ''
+        wrapper.style.transform = ''
         const { svg } = await mermaid.render(renderId, diagram)
-        container.innerHTML = svg
+        wrapper.innerHTML = svg
 
-        const svgEl = container.querySelector('svg') as SVGSVGElement | null
+        const svgEl = wrapper.querySelector('svg') as SVGSVGElement | null
         if (svgEl) {
           svgRef.current = svgEl
           svgEl.style.maxWidth = 'none'
           svgEl.style.overflow = 'visible'
-          applyTransform()
+          svgEl.style.display = 'block'
+
+          // Pan to show the leftmost part of the diagram
+          requestAnimationFrame(() => {
+            const svgRect = svgEl.getBoundingClientRect()
+            const vpRect = viewportRef.current!.getBoundingClientRect()
+            if (svgRect.width > vpRect.width) {
+              panX.current = (svgRect.width - vpRect.width) / 2
+            }
+            applyTransform()
+          })
         }
       } catch (e) {
         console.warn('[MermaidDiagram] Render failed:', e)
@@ -252,13 +264,14 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
       initMermaid(isDark)
       const renderId = `mermaid-${uniqueId}-${++renderCount.current}`
       mermaid.render(renderId, diagram).then(({ svg }) => {
-        if (viewportRef.current) {
-          viewportRef.current.innerHTML = svg
-          const svgEl = viewportRef.current.querySelector('svg') as SVGSVGElement | null
+        if (wrapperRef.current) {
+          wrapperRef.current.innerHTML = svg
+          const svgEl = wrapperRef.current.querySelector('svg') as SVGSVGElement | null
           if (svgEl) {
             svgRef.current = svgEl
             svgEl.style.maxWidth = 'none'
             svgEl.style.overflow = 'visible'
+            svgEl.style.display = 'block'
             applyTransform()
           }
         }
@@ -301,12 +314,16 @@ export function MermaidDiagram({ diagram }: MermaidDiagramProps) {
         ref={viewportRef}
         className="overflow-hidden w-full relative"
         style={{ height, cursor: 'default' }}
-      />
+      >
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div ref={wrapperRef} className="flex-shrink-0" />
+        </div>
+      </div>
 
       {/* Top bar: zoom indicator + reset */}
-      <div className="absolute top-3 left-3 flex items-center gap-2 z-10 opacity-0 group-hover/diagram:opacity-100 transition-opacity">
+      <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
         <span className="text-[10px] font-mono text-[var(--text-faint)] bg-[var(--bg-card)]/90 backdrop-blur-sm border border-[var(--border)] px-2 py-1 rounded-md tabular-nums">
-          {Math.round(zoom.current * 100)}%
+          {Math.round(zoomLevel * 100)}%
         </span>
         <button
           onClick={resetView}

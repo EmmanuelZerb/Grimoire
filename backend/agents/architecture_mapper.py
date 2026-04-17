@@ -327,7 +327,7 @@ def _generate_mermaid(
     # Sanitize node IDs (Mermaid requires alphanumeric + underscore)
     node_ids: dict[str, str] = {}
     for node in sorted(graph.nodes):
-        safe = node.replace("/", "_").replace("-", "_").replace(".", "_").replace("(", "_").replace(")", "_")
+        safe = node.replace("/", "_").replace("-", "_").replace(".", "_").replace("(", "_").replace(")", "_").replace("[", "_").replace("]", "_").replace("{", "_").replace("}", "_")
         node_ids[node] = safe
 
     # Node styles by role
